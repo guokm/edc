@@ -1,0 +1,27 @@
+FROM maven:3.9.8-eclipse-temurin-21 AS build
+WORKDIR /app
+
+ARG MODULE
+
+COPY pom.xml ./
+COPY edc-common/pom.xml edc-common/pom.xml
+COPY edc-control-plane/pom.xml edc-control-plane/pom.xml
+COPY edc-data-plane/pom.xml edc-data-plane/pom.xml
+COPY edc-identity-hub/pom.xml edc-identity-hub/pom.xml
+COPY edc-issuer-service/pom.xml edc-issuer-service/pom.xml
+COPY edc-federated-catalog/pom.xml edc-federated-catalog/pom.xml
+COPY edc-operator-services/pom.xml edc-operator-services/pom.xml
+
+RUN mvn -q -DskipTests -pl ${MODULE} -am dependency:go-offline
+
+COPY . .
+RUN mvn -q -DskipTests -pl ${MODULE} -am package
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+ARG MODULE
+COPY --from=build /app/${MODULE}/target/*.jar /app/app.jar
+
+ENV JAVA_OPTS=""
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

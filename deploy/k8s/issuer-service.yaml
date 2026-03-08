@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-issuer-service
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-issuer-service
+  template:
+    metadata:
+      labels:
+        app: edc-issuer-service
+    spec:
+      containers:
+        - name: edc-issuer-service
+          image: edc-issuer-service:local
+          ports:
+            - containerPort: 8184
+          env:
+            - name: EDC_DB_HOST
+              value: "edc-mysql"
+            - name: EDC_DB_PORT
+              value: "3306"
+            - name: EDC_DB_NAME
+              value: "edc"
+            - name: EDC_DB_USER
+              value: "edc"
+            - name: EDC_DB_PASSWORD
+              value: "edc"
+            - name: EDC_KAFKA_BOOTSTRAP
+              value: "edc-kafka:9092"
+            - name: EDC_KAFKA_GROUP
+              value: "edc-issuer-service"
+            - name: EDC_OPERATOR_BASE_URL
+              value: "http://edc-operator-services:8186"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-issuer-service
+  namespace: edc
+spec:
+  selector:
+    app: edc-issuer-service
+  ports:
+    - port: 8184
+      targetPort: 8184

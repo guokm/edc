@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-frontend
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-frontend
+  template:
+    metadata:
+      labels:
+        app: edc-frontend
+    spec:
+      containers:
+        - name: edc-frontend
+          image: edc-frontend:local
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-frontend
+  namespace: edc
+spec:
+  selector:
+    app: edc-frontend
+  ports:
+    - port: 80
+      targetPort: 80

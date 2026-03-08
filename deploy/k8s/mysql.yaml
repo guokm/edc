@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: edc-mysql-pvc
+  namespace: edc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-mysql
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-mysql
+  template:
+    metadata:
+      labels:
+        app: edc-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_USER
+              value: "edc"
+            - name: MYSQL_PASSWORD
+              value: "edc"
+            - name: MYSQL_DATABASE
+              value: "edc"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: edc-mysql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-mysql
+  namespace: edc
+spec:
+  selector:
+    app: edc-mysql
+  ports:
+    - port: 3306
+      targetPort: 3306

@@ -1,0 +1,15 @@
+com/example/edc/common/model/BillingRecord.class
+com/example/edc/common/model/ContractAgreement.class
+com/example/edc/common/model/UsageEvent.class
+com/example/edc/common/model/TransferProcess.class
+com/example/edc/common/model/DataAddress.class
+com/example/edc/common/model/CatalogEntry.class
+com/example/edc/common/model/AuditRecord.class
+com/example/edc/common/model/Credential.class
+com/example/edc/common/model/DataPlaneCapability.class
+com/example/edc/common/model/ContractDefinition.class
+com/example/edc/common/model/Participant.class
+com/example/edc/common/model/Membership.class
+com/example/edc/common/model/ContractOffer.class
+com/example/edc/common/model/Policy.class
+com/example/edc/common/model/Asset.class

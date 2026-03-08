@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-identity-hub
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-identity-hub
+  template:
+    metadata:
+      labels:
+        app: edc-identity-hub
+    spec:
+      containers:
+        - name: edc-identity-hub
+          image: edc-identity-hub:local
+          ports:
+            - containerPort: 8183
+          env:
+            - name: EDC_DB_HOST
+              value: "edc-mysql"
+            - name: EDC_DB_PORT
+              value: "3306"
+            - name: EDC_DB_NAME
+              value: "edc"
+            - name: EDC_DB_USER
+              value: "edc"
+            - name: EDC_DB_PASSWORD
+              value: "edc"
+            - name: EDC_KAFKA_BOOTSTRAP
+              value: "edc-kafka:9092"
+            - name: EDC_KAFKA_GROUP
+              value: "edc-identity-hub"
+            - name: EDC_OPERATOR_BASE_URL
+              value: "http://edc-operator-services:8186"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-identity-hub
+  namespace: edc
+spec:
+  selector:
+    app: edc-identity-hub
+  ports:
+    - port: 8183
+      targetPort: 8183

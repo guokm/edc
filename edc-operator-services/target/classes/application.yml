@@ -1,0 +1,26 @@
+server:
+  port: 8186
+spring:
+  application:
+    name: edc-operator-services
+  datasource:
+    url: jdbc:mysql://${EDC_DB_HOST:localhost}:${EDC_DB_PORT:3306}/${EDC_DB_NAME:edc}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${EDC_DB_USER:edc}
+    password: ${EDC_DB_PASSWORD:edc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: ${EDC_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ${EDC_KAFKA_GROUP:edc-operator-services}
+      auto-offset-reset: latest
+    producer:
+      acks: all
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

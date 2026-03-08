@@ -1,0 +1,12 @@
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/FederatedCatalogApplication.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/config/WebCorsConfig.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/controller/FederatedCatalogController.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/dto/CatalogSyncRequest.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/entity/FcCatalogItemEntity.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/entity/FcCrawlJobEntity.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/mapper/FcCatalogItemMapper.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/mapper/FcCrawlJobMapper.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/service/FederatedAccessService.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/service/FederatedBillingService.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/service/FederatedCatalogService.java
+/Users/guokemeng/own/code/edc/edc-federated-catalog/src/main/java/com/example/edc/federated/service/FederatedSchemaService.java

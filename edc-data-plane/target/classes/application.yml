@@ -1,0 +1,35 @@
+server:
+  port: 8182
+spring:
+  application:
+    name: edc-data-plane
+  datasource:
+    url: jdbc:mysql://${EDC_DB_HOST:localhost}:${EDC_DB_PORT:3306}/${EDC_DB_NAME:edc}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${EDC_DB_USER:edc}
+    password: ${EDC_DB_PASSWORD:edc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: ${EDC_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ${EDC_KAFKA_GROUP:edc-data-plane}
+      auto-offset-reset: latest
+    producer:
+      acks: all
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+edc:
+  control-plane:
+    base-url: ${EDC_CONTROL_PLANE_BASE_URL:http://localhost:8181}
+  dataplane:
+    id: ${EDC_DATAPLANE_ID:dp-1}
+    protocol: ${EDC_DATAPLANE_PROTOCOL:DSP}
+    public-api-base-url: ${EDC_DATAPLANE_PUBLIC_API_BASE_URL:http://localhost:${server.port}}
+    control-api-base-url: ${EDC_DATAPLANE_CONTROL_API_BASE_URL:http://localhost:${server.port}}
+    registration-interval-ms: ${EDC_DATAPLANE_REGISTRATION_INTERVAL_MS:30000}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

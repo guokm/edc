@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-federated-catalog
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-federated-catalog
+  template:
+    metadata:
+      labels:
+        app: edc-federated-catalog
+    spec:
+      containers:
+        - name: edc-federated-catalog
+          image: edc-federated-catalog:local
+          ports:
+            - containerPort: 8185
+          env:
+            - name: EDC_DB_HOST
+              value: "edc-mysql"
+            - name: EDC_DB_PORT
+              value: "3306"
+            - name: EDC_DB_NAME
+              value: "edc"
+            - name: EDC_DB_USER
+              value: "edc"
+            - name: EDC_DB_PASSWORD
+              value: "edc"
+            - name: EDC_KAFKA_BOOTSTRAP
+              value: "edc-kafka:9092"
+            - name: EDC_KAFKA_GROUP
+              value: "edc-federated-catalog"
+            - name: EDC_OPERATOR_BASE_URL
+              value: "http://edc-operator-services:8186"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-federated-catalog
+  namespace: edc
+spec:
+  selector:
+    app: edc-federated-catalog
+  ports:
+    - port: 8185
+      targetPort: 8185

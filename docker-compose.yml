@@ -1,0 +1,240 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: edc
+      MYSQL_USER: edc
+      MYSQL_PASSWORD: edc
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    ports:
+      - "13306:3306"
+    volumes:
+      - edc-mysql:/var/lib/mysql
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  control-plane:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-control-plane
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-control-plane
+      EDC_TRANSFER_EVENT_TOPIC: edc.transfer.events
+      EDC_OPERATOR_BASE_URL: http://operator-services:8186
+      EDC_IDENTITY_HUB_BASE_URL: http://identity-hub:8183
+      EDC_FEDERATED_CATALOG_BASE_URL: http://federated-catalog:8185
+      EDC_FEDERATED_SYNC_TOKEN: federated-sync-key
+      EDC_ORCHESTRATION_DEMO_TOKEN: operator-demo-key
+      EDC_MONITOR_CONTROL_PLANE_BASE_URL: http://control-plane:8181
+      EDC_MONITOR_DATA_PLANE_1_BASE_URL: http://data-plane-1:8182
+      EDC_MONITOR_DATA_PLANE_2_BASE_URL: http://data-plane-2:8182
+      EDC_MONITOR_IDENTITY_HUB_BASE_URL: http://identity-hub:8183
+      EDC_MONITOR_ISSUER_SERVICE_BASE_URL: http://issuer-service:8184
+      EDC_MONITOR_FEDERATED_CATALOG_BASE_URL: http://federated-catalog:8185
+      EDC_MONITOR_OPERATOR_SERVICE_BASE_URL: http://operator-services:8186
+      EDC_MONITOR_FRONTEND_BASE_URL: http://frontend:80
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8181:8181"
+
+  data-plane-1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-data-plane
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-data-plane-1
+      EDC_CONTROL_PLANE_BASE_URL: http://control-plane:8181
+      EDC_DATAPLANE_ID: dp-1
+      EDC_DATAPLANE_PROTOCOL: DSP
+      EDC_DATAPLANE_PUBLIC_API_BASE_URL: http://localhost:8182
+      EDC_DATAPLANE_CONTROL_API_BASE_URL: http://data-plane-1:8182
+    depends_on:
+      control-plane:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8182:8182"
+
+  data-plane-2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-data-plane
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-data-plane-2
+      EDC_CONTROL_PLANE_BASE_URL: http://control-plane:8181
+      EDC_DATAPLANE_ID: dp-2
+      EDC_DATAPLANE_PROTOCOL: DSP
+      EDC_DATAPLANE_PUBLIC_API_BASE_URL: http://localhost:8187
+      EDC_DATAPLANE_CONTROL_API_BASE_URL: http://data-plane-2:8182
+    depends_on:
+      control-plane:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8187:8182"
+
+  identity-hub:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-identity-hub
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-identity-hub
+      EDC_OPERATOR_BASE_URL: http://operator-services:8186
+      EDC_ISSUER_BASE_URL: http://issuer-service:8184
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8183:8183"
+
+  issuer-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-issuer-service
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-issuer-service
+      EDC_OPERATOR_BASE_URL: http://operator-services:8186
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8184:8184"
+
+  federated-catalog:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-federated-catalog
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-federated-catalog
+      EDC_OPERATOR_BASE_URL: http://operator-services:8186
+      EDC_CONTROL_PLANE_BASE_URL: http://control-plane:8181
+      EDC_FEDERATED_SYNC_TOKEN: federated-sync-key
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8185:8185"
+
+  operator-services:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        MODULE: edc-operator-services
+    environment:
+      EDC_DB_HOST: mysql
+      EDC_DB_PORT: 3306
+      EDC_DB_NAME: edc
+      EDC_DB_USER: edc
+      EDC_DB_PASSWORD: edc
+      EDC_KAFKA_BOOTSTRAP: kafka:9092
+      EDC_KAFKA_GROUP: edc-operator-services
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8186:8186"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "8080:80"
+
+volumes:
+  edc-mysql:

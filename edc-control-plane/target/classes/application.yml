@@ -1,0 +1,47 @@
+server:
+  port: 8181
+spring:
+  application:
+    name: edc-control-plane
+  datasource:
+    url: jdbc:mysql://${EDC_DB_HOST:localhost}:${EDC_DB_PORT:3306}/${EDC_DB_NAME:edc}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${EDC_DB_USER:edc}
+    password: ${EDC_DB_PASSWORD:edc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: ${EDC_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ${EDC_KAFKA_GROUP:edc-control-plane}
+      auto-offset-reset: latest
+    producer:
+      acks: all
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+edc:
+  kafka:
+    transfer-topic: ${EDC_TRANSFER_EVENT_TOPIC:edc.transfer.events}
+  operator:
+    base-url: ${EDC_OPERATOR_BASE_URL:http://localhost:8186}
+  identity-hub:
+    base-url: ${EDC_IDENTITY_HUB_BASE_URL:http://localhost:8183}
+  federated-catalog:
+    base-url: ${EDC_FEDERATED_CATALOG_BASE_URL:http://localhost:8185}
+    sync-token: ${EDC_FEDERATED_SYNC_TOKEN:federated-sync-key}
+  security:
+    orchestration-demo-token: ${EDC_ORCHESTRATION_DEMO_TOKEN:operator-demo-key}
+  monitor:
+    control-plane-base-url: ${EDC_MONITOR_CONTROL_PLANE_BASE_URL:http://localhost:8181}
+    data-plane-1-base-url: ${EDC_MONITOR_DATA_PLANE_1_BASE_URL:http://localhost:8182}
+    data-plane-2-base-url: ${EDC_MONITOR_DATA_PLANE_2_BASE_URL:http://localhost:8187}
+    identity-hub-base-url: ${EDC_MONITOR_IDENTITY_HUB_BASE_URL:http://localhost:8183}
+    issuer-service-base-url: ${EDC_MONITOR_ISSUER_SERVICE_BASE_URL:http://localhost:8184}
+    federated-catalog-base-url: ${EDC_MONITOR_FEDERATED_CATALOG_BASE_URL:http://localhost:8185}
+    operator-service-base-url: ${EDC_MONITOR_OPERATOR_SERVICE_BASE_URL:http://localhost:8186}
+    frontend-base-url: ${EDC_MONITOR_FRONTEND_BASE_URL:http://localhost:8080}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

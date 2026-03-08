@@ -1,0 +1,33 @@
+server:
+  port: 8185
+spring:
+  application:
+    name: edc-federated-catalog
+  datasource:
+    url: jdbc:mysql://${EDC_DB_HOST:localhost}:${EDC_DB_PORT:3306}/${EDC_DB_NAME:edc}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${EDC_DB_USER:edc}
+    password: ${EDC_DB_PASSWORD:edc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: ${EDC_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ${EDC_KAFKA_GROUP:edc-federated-catalog}
+      auto-offset-reset: latest
+    producer:
+      acks: all
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+edc:
+  operator:
+    base-url: ${EDC_OPERATOR_BASE_URL:http://localhost:8186}
+  control-plane:
+    base-url: ${EDC_CONTROL_PLANE_BASE_URL:http://localhost:8181}
+  security:
+    sync-token: ${EDC_FEDERATED_SYNC_TOKEN:federated-sync-key}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

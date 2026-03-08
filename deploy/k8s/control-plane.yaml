@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edc-control-plane
+  namespace: edc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edc-control-plane
+  template:
+    metadata:
+      labels:
+        app: edc-control-plane
+    spec:
+      containers:
+        - name: edc-control-plane
+          image: edc-control-plane:local
+          ports:
+            - containerPort: 8181
+          env:
+            - name: EDC_DB_HOST
+              value: "edc-mysql"
+            - name: EDC_DB_PORT
+              value: "3306"
+            - name: EDC_DB_NAME
+              value: "edc"
+            - name: EDC_DB_USER
+              value: "edc"
+            - name: EDC_DB_PASSWORD
+              value: "edc"
+            - name: EDC_KAFKA_BOOTSTRAP
+              value: "edc-kafka:9092"
+            - name: EDC_KAFKA_GROUP
+              value: "edc-control-plane"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edc-control-plane
+  namespace: edc
+spec:
+  selector:
+    app: edc-control-plane
+  ports:
+    - port: 8181
+      targetPort: 8181

@@ -1,0 +1,15 @@
+com/example/edc/federated/dto/CatalogSyncRequest.class
+com/example/edc/federated/service/FederatedBillingService.class
+com/example/edc/federated/service/FederatedSchemaService.class
+com/example/edc/federated/mapper/FcCatalogItemMapper.class
+com/example/edc/federated/entity/FcCatalogItemEntity.class
+com/example/edc/federated/service/FederatedCatalogService.class
+com/example/edc/federated/service/FederatedCatalogService$1.class
+com/example/edc/federated/mapper/FcCrawlJobMapper.class
+com/example/edc/federated/service/FederatedAccessService.class
+com/example/edc/federated/FederatedCatalogApplication.class
+com/example/edc/federated/entity/FcCrawlJobEntity.class
+com/example/edc/federated/controller/FederatedCatalogController.class
+com/example/edc/federated/config/WebCorsConfig.class
+com/example/edc/federated/service/FederatedBillingService$1.class
+com/example/edc/federated/service/FederatedCatalogService$2.class

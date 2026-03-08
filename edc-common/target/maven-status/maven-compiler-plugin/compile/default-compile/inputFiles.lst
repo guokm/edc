@@ -1,0 +1,15 @@
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/Asset.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/AuditRecord.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/BillingRecord.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/CatalogEntry.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/ContractAgreement.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/ContractDefinition.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/ContractOffer.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/Credential.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/DataAddress.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/DataPlaneCapability.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/Membership.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/Participant.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/Policy.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/TransferProcess.java
+/Users/guokemeng/own/code/edc/edc-common/src/main/java/com/example/edc/common/model/UsageEvent.java

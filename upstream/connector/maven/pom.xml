@@ -1,0 +1,28 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.eclipse.edc</groupId>
+  <artifactId>connector-maven</artifactId>
+  <version>0.17.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>EDC Connector Maven (Migration Scaffold)</name>
+  <description>Initial Maven scaffold for Eclipse EDC Connector BOMs.</description>
+
+  <modules>
+    <module>../dist/bom/controlplane-base-bom</module>
+    <module>../dist/bom/controlplane-dcp-bom</module>
+    <module>../dist/bom/controlplane-feature-sql-bom</module>
+    <module>../dist/bom/dataplane-base-bom</module>
+    <module>../dist/bom/dataplane-feature-sql-bom</module>
+  </modules>
+
+  <properties>
+    <edc.version>${project.version}</edc.version>
+    <postgres.version>42.7.9</postgres.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+</project>

@@ -1,0 +1,31 @@
+server:
+  port: 8183
+spring:
+  application:
+    name: edc-identity-hub
+  datasource:
+    url: jdbc:mysql://${EDC_DB_HOST:localhost}:${EDC_DB_PORT:3306}/${EDC_DB_NAME:edc}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${EDC_DB_USER:edc}
+    password: ${EDC_DB_PASSWORD:edc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: ${EDC_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ${EDC_KAFKA_GROUP:edc-identity-hub}
+      auto-offset-reset: latest
+    producer:
+      acks: all
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+edc:
+  operator:
+    base-url: ${EDC_OPERATOR_BASE_URL:http://localhost:8186}
+  issuer:
+    base-url: ${EDC_ISSUER_BASE_URL:http://localhost:8184}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

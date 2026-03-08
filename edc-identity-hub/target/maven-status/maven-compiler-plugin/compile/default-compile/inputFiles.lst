@@ -1,0 +1,15 @@
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/IdentityHubApplication.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/config/WebCorsConfig.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/controller/DcpController.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/controller/IdentityController.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/dto/CredentialRequest.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/dto/DcpPresentationRequest.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/dto/DcpVerificationRequest.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/dto/PresentationRequest.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/entity/IhCredentialEntity.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/entity/IhPresentationEntity.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/mapper/IhCredentialMapper.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/mapper/IhPresentationMapper.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/service/IdentityBillingService.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/service/IdentityHubService.java
+/Users/guokemeng/own/code/edc/edc-identity-hub/src/main/java/com/example/edc/identityhub/service/IdentitySchemaService.java

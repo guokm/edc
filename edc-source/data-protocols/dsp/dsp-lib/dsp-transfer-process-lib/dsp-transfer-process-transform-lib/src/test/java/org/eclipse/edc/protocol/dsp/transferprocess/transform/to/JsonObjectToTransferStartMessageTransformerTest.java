@@ -1,0 +1,118 @@
+/*
+ *  Copyright (c) 2023 Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
+ *
+ *  This program and the accompanying materials are made available under the
+ *  terms of the Apache License, Version 2.0 which is available at
+ *  https://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Contributors:
+ *       Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V. - initial API and implementation
+ *
+ */
+
+package org.eclipse.edc.protocol.dsp.transferprocess.transform.to;
+
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+import org.eclipse.edc.jsonld.spi.JsonLdNamespace;
+import org.eclipse.edc.protocol.dsp.transferprocess.transform.type.to.JsonObjectToTransferStartMessageTransformer;
+import org.eclipse.edc.spi.types.domain.DataAddress;
+import org.eclipse.edc.transform.spi.ProblemBuilder;
+import org.eclipse.edc.transform.spi.TransformerContext;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.TYPE;
+import static org.eclipse.edc.protocol.dsp.spi.type.DspPropertyAndTypeNames.DSPACE_PROPERTY_CONSUMER_PID_TERM;
+import static org.eclipse.edc.protocol.dsp.spi.type.DspPropertyAndTypeNames.DSPACE_PROPERTY_PROVIDER_PID_TERM;
+import static org.eclipse.edc.protocol.dsp.spi.type.DspTransferProcessPropertyAndTypeNames.DSPACE_PROPERTY_DATA_ADDRESS_TERM;
+import static org.eclipse.edc.protocol.dsp.spi.type.DspTransferProcessPropertyAndTypeNames.DSPACE_TYPE_TRANSFER_START_MESSAGE_TERM;
+import static org.eclipse.edc.protocol.dsp.transferprocess.transform.to.TestInput.getExpanded;
+import static org.eclipse.edc.spi.constants.CoreConstants.EDC_NAMESPACE;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class JsonObjectToTransferStartMessageTransformerTest {
+
+    private static final JsonLdNamespace DSP_NAMESPACE = new JsonLdNamespace("http://www.w3.org/ns/dsp#");
+    private final TransformerContext context = mock();
+
+    private final JsonObjectToTransferStartMessageTransformer transformer =
+            new JsonObjectToTransferStartMessageTransformer(DSP_NAMESPACE);
+
+    @Test
+    void jsonObjectToTransferStartMessage() {
+        var json = Json.createObjectBuilder()
+                .add(TYPE, DSP_NAMESPACE.toIri(DSPACE_TYPE_TRANSFER_START_MESSAGE_TERM))
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_CONSUMER_PID_TERM), "consumerPid")
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_PROVIDER_PID_TERM), "providerPid")
+                .build();
+
+        var result = transformer.transform(getExpanded(json), context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getConsumerPid()).isEqualTo("consumerPid");
+        assertThat(result.getProviderPid()).isEqualTo("providerPid");
+
+        verify(context, never()).reportProblem(anyString());
+    }
+
+    @Test
+    void shouldReturnNullAndReportError_whenConsumerAndProviderPidNotValid() {
+        when(context.problem()).thenReturn(new ProblemBuilder(context));
+        var json = Json.createObjectBuilder()
+                .add(TYPE, DSP_NAMESPACE.toIri(DSPACE_TYPE_TRANSFER_START_MESSAGE_TERM))
+                .build();
+
+        var result = transformer.transform(getExpanded(json), context);
+
+        assertThat(result).isNull();
+        verify(context).reportProblem(anyString());
+    }
+
+    @Test
+    void jsonObjectToTransferStartMessageWithDataAddress() {
+        var dataAddressObject = Json.createObjectBuilder().add(EDC_NAMESPACE + "type", "AWS").build();
+        var json = Json.createObjectBuilder()
+                .add(TYPE, DSP_NAMESPACE.toIri(DSPACE_TYPE_TRANSFER_START_MESSAGE_TERM))
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_CONSUMER_PID_TERM), "consumerPid")
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_PROVIDER_PID_TERM), "providerPid")
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_DATA_ADDRESS_TERM), dataAddressObject)
+                .build();
+
+        var dataAddress = DataAddress.Builder.newInstance().type("AWS").build();
+
+        when(context.transform(isA(JsonObject.class), eq(DataAddress.class))).thenReturn(dataAddress);
+
+        var result = transformer.transform(getExpanded(json), context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getDataAddress()).isSameAs(dataAddress);
+
+        verify(context, never()).reportProblem(anyString());
+    }
+
+    @Test
+    void jsonObjectToTransferStartMessageWithEmptyDataAddress() {
+        var json = Json.createObjectBuilder()
+                .add(TYPE, DSP_NAMESPACE.toIri(DSPACE_TYPE_TRANSFER_START_MESSAGE_TERM))
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_CONSUMER_PID_TERM), "consumerPid")
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_PROVIDER_PID_TERM), "providerPid")
+                .add(DSP_NAMESPACE.toIri(DSPACE_PROPERTY_DATA_ADDRESS_TERM), Json.createObjectBuilder().build())
+                .build();
+
+        var result = transformer.transform(getExpanded(json), context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getDataAddress()).isNull();
+
+        verify(context, never()).reportProblem(anyString());
+    }
+}
