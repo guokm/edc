@@ -14,7 +14,7 @@
 ./scripts/verify.sh
 ```
 
-访问前端：`http://localhost:8080`
+访问前端：`http://localhost:18080`
 
 ## 3. 演示路径（按角色切换）
 

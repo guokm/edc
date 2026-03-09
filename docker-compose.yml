@@ -13,7 +13,7 @@ services:
       retries: 20
       start_period: 20s
     ports:
-      - "13306:3306"
+      - "127.0.0.1:13306:3306"
     volumes:
       - edc-mysql:/var/lib/mysql
 
@@ -23,15 +23,15 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - "2181:2181"
+      - "127.0.0.1:12181:2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -75,7 +75,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8181:8181"
+      - "127.0.0.1:8181:8181"
 
   data-plane-1:
     build:
@@ -94,7 +94,7 @@ services:
       EDC_CONTROL_PLANE_BASE_URL: http://control-plane:8181
       EDC_DATAPLANE_ID: dp-1
       EDC_DATAPLANE_PROTOCOL: DSP
-      EDC_DATAPLANE_PUBLIC_API_BASE_URL: http://localhost:8182
+      EDC_DATAPLANE_PUBLIC_API_BASE_URL: "${EDC_PUBLIC_BASE_URL:-http://localhost:18080}/dp1"
       EDC_DATAPLANE_CONTROL_API_BASE_URL: http://data-plane-1:8182
     depends_on:
       control-plane:
@@ -104,7 +104,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8182:8182"
+      - "127.0.0.1:8182:8182"
 
   data-plane-2:
     build:
@@ -123,7 +123,7 @@ services:
       EDC_CONTROL_PLANE_BASE_URL: http://control-plane:8181
       EDC_DATAPLANE_ID: dp-2
       EDC_DATAPLANE_PROTOCOL: DSP
-      EDC_DATAPLANE_PUBLIC_API_BASE_URL: http://localhost:8187
+      EDC_DATAPLANE_PUBLIC_API_BASE_URL: "${EDC_PUBLIC_BASE_URL:-http://localhost:18080}/dp2"
       EDC_DATAPLANE_CONTROL_API_BASE_URL: http://data-plane-2:8182
     depends_on:
       control-plane:
@@ -133,7 +133,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8187:8182"
+      - "127.0.0.1:8187:8182"
 
   identity-hub:
     build:
@@ -157,7 +157,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8183:8183"
+      - "127.0.0.1:8183:8183"
 
   issuer-service:
     build:
@@ -180,7 +180,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8184:8184"
+      - "127.0.0.1:8184:8184"
 
   federated-catalog:
     build:
@@ -205,7 +205,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8185:8185"
+      - "127.0.0.1:8185:8185"
 
   operator-services:
     build:
@@ -227,14 +227,22 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8186:8186"
+      - "127.0.0.1:8186:8186"
 
   frontend:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+    depends_on:
+      - control-plane
+      - identity-hub
+      - issuer-service
+      - federated-catalog
+      - operator-services
+      - data-plane-1
+      - data-plane-2
     ports:
-      - "8080:80"
+      - "18080:80"
 
 volumes:
   edc-mysql:

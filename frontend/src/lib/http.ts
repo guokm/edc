@@ -20,3 +20,9 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
 export function prettyJson(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
+
+export const CONTROL_BASE = '/cp'
+export const IDENTITY_BASE = '/ih'
+export const ISSUER_BASE = '/is'
+export const FEDERATED_BASE = '/fc'
+export const OPERATOR_BASE = '/op'

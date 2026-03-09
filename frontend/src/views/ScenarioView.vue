@@ -39,6 +39,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { CONTROL_BASE, requestJson } from '../lib/http'
 
 type ScenarioResponse = {
   transferIds: string[]
@@ -57,17 +58,11 @@ async function runScenario() {
   result.value = null
 
   try {
-    const response = await fetch('http://localhost:8181/api/scenario/run', {
+    result.value = await requestJson<ScenarioResponse>(`${CONTROL_BASE}/api/scenario/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetCount: assetCount.value, consumerId: consumerId.value })
     })
-
-    if (!response.ok) {
-      throw new Error(`场景执行失败：HTTP ${response.status}`)
-    }
-
-    result.value = (await response.json()) as ScenarioResponse
   } catch (err) {
     error.value = err instanceof Error ? err.message : '场景执行失败'
   } finally {

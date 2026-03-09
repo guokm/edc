@@ -95,7 +95,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { requestJson } from '../lib/http'
+import { CONTROL_BASE, requestJson } from '../lib/http'
 
 type MonitorStatus = {
   moduleName: string
@@ -126,10 +126,6 @@ type DataPlaneInfo = {
   message: string
   checkedAt: string
 }
-
-const runtimeHost = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost'
-const runtimeProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:'
-const CONTROL_BASE = `${runtimeProtocol}//${runtimeHost}:8181`
 
 const services = ref<MonitorStatus[]>([])
 const registryItems = ref<RegistryItem[]>([])

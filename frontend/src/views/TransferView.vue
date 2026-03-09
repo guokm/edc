@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { CONTROL_BASE } from '../lib/http'
 
 type EdrResponse = {
   endpoint: string
@@ -63,7 +64,7 @@ async function queryEdr() {
   payload.value = ''
 
   try {
-    const response = await fetch(`http://localhost:8181/api/transfers/${transferId.value}/edr`)
+    const response = await fetch(`${CONTROL_BASE}/api/transfers/${transferId.value}/edr`)
     if (!response.ok) {
       throw new Error(`查询失败：HTTP ${response.status}`)
     }

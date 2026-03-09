@@ -28,6 +28,8 @@ mvn -q -DskipTests package
 docker compose up -d --build
 ```
 
+说明：当前编排为单入口网关模式，对外访问统一走 `18080`，后端端口仅绑定本机 `127.0.0.1`。
+
 ### 3.3 健康检查
 
 ```bash
@@ -110,7 +112,7 @@ docker compose down
 
 ## 7. 前端按角色操作说明
 
-访问：`http://localhost:8080`
+访问：`http://localhost:18080`
 
 页面列表统一规则：时间列 + 时间倒序 + 默认每页 10 条。
 

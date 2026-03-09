@@ -39,6 +39,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { FEDERATED_BASE, IDENTITY_BASE, ISSUER_BASE, OPERATOR_BASE } from '../lib/http'
 
 type CheckItem = {
   name: string
@@ -48,10 +49,10 @@ type CheckItem = {
 }
 
 const checks = ref<CheckItem[]>([
-  { name: 'Identity DID', url: 'http://localhost:8183/api/identity/did', code: '...', checkedAt: '' },
-  { name: 'Issuer Credential', url: 'http://localhost:8184/api/issuer/credentials', code: '...', checkedAt: '' },
-  { name: 'Federated Catalog', url: 'http://localhost:8185/api/federated/catalog', code: '...', checkedAt: '' },
-  { name: 'Operator Membership', url: 'http://localhost:8186/api/memberships', code: '...', checkedAt: '' }
+  { name: 'Identity DID', url: `${IDENTITY_BASE}/api/identity/did`, code: '...', checkedAt: '' },
+  { name: 'Issuer Credential', url: `${ISSUER_BASE}/api/issuer/credentials`, code: '...', checkedAt: '' },
+  { name: 'Federated Catalog', url: `${FEDERATED_BASE}/api/federated/catalog`, code: '...', checkedAt: '' },
+  { name: 'Operator Membership', url: `${OPERATOR_BASE}/api/memberships`, code: '...', checkedAt: '' }
 ])
 
 const loading = ref(false)

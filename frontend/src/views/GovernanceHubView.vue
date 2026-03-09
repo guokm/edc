@@ -123,7 +123,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { prettyJson, requestJson } from '../lib/http'
+import {
+  CONTROL_BASE,
+  FEDERATED_BASE,
+  IDENTITY_BASE,
+  ISSUER_BASE,
+  OPERATOR_BASE,
+  prettyJson,
+  requestJson
+} from '../lib/http'
 
 type ApiState = {
   loading: boolean
@@ -156,16 +164,6 @@ type EndpointKey =
   | 'operatorAuditList'
   | 'operatorBillingList'
   | 'operatorUsage'
-
-const runtimeHost = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost'
-const runtimeProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:'
-const serviceBase = (port: number) => `${runtimeProtocol}//${runtimeHost}:${port}`
-
-const CONTROL_BASE = serviceBase(8181)
-const IDENTITY_BASE = serviceBase(8183)
-const ISSUER_BASE = serviceBase(8184)
-const FEDERATED_BASE = serviceBase(8185)
-const OPERATOR_BASE = serviceBase(8186)
 
 const participantId = ref('participant-a')
 const credentialId = ref('')

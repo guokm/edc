@@ -43,6 +43,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { CONTROL_BASE } from '../lib/http'
 
 type DataPlaneItem = {
   id: string
@@ -84,7 +85,7 @@ async function loadDataPlanes() {
   error.value = ''
 
   try {
-    const response = await fetch('http://localhost:8181/api/dataplanes')
+    const response = await fetch(`${CONTROL_BASE}/api/dataplanes`)
     if (!response.ok) {
       throw new Error(`查询失败：HTTP ${response.status}`)
     }

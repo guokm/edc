@@ -115,7 +115,7 @@ log "服务健康检查"
 for port in 8181 8182 8183 8184 8185 8186 8187; do
   check_code "health-${port}" "http://localhost:${port}/actuator/health" "200"
 done
-check_code "frontend-index" "http://localhost:8080" "200"
+check_code "frontend-index" "http://localhost:18080" "200"
 if ! grep -q "EDC 商用数据空间控制台" /tmp/frontend-index.json; then
   echo "ERROR: frontend title not found" >&2
   exit 1
