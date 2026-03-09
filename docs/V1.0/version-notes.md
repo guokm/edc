@@ -37,6 +37,11 @@
 - 身份中心新增资格查询接口：`GET /api/dcp/qualification`，供控制面与前端显示资格判定结果。
 - 新增 agreement 级“编排门禁预演”接口：`GET /api/transfers/orchestration/preview`，展示会员/资格/计费只读/Data Plane 选择。
 - 编排门禁预演接口新增权限头校验：`X-Participant-Id=operator` + `X-Operator-Token`（由 `EDC_ORCHESTRATION_DEMO_TOKEN` 控制）。
+- Federated Catalog 与控制面目录建立镜像同步（按 `offer_id` 幂等 upsert），关系可通过 `cp_offer.id = fc_catalog_item.offer_id` 追踪。
+- 控制面关键动作自动写入运营审计表 `edc_op_audit_event`，前端治理页补充审计与账单列表展示。
+- 协商/传输计费编码升级为业务维度：`CONTRACT_NEGOTIATION_CREATE:<offerId>`、`TRANSFER_START:<assetId>`。
+- 协商/传输成功后自动写入 `edc_op_billing_record`（按 `agreement_id` 挂账）。
+- 身份资格校验强化：Identity 凭证需携带并通过 `issuanceId` 校验（Issuer 新增 `GET /api/issuer/credentials/{issuanceId}`）。
 - 根目录 `AGENT.md` 为全项目总说明；`docs/<版本号>/` 记录每个版本的重要信息（本文件即 V1.0）。
 
 ## 2. 本版本关键能力
@@ -58,6 +63,8 @@
 - `GET /api/transfers/{transferProcessId}/trace`：单传输全链路轨迹。
 - `GET /api/transfers/orchestration/preview`：agreement 级编排门禁预演（只读，不扣费）。
 - `POST /api/scenario/dual-plane-demo`：强制 dp-1 / dp-2 的双数据平面演示流程。
+- `GET /api/issuer/credentials/{issuanceId}`：查询签发单明细。
+- `POST /api/federated/internal/sync`：控制面向联邦目录的内部镜像同步接口（带令牌）。
 - `GET /api/monitor/health`：控制面汇总各模块健康状态。
 - `GET /api/monitor/governance`：控制面汇总治理接口状态。
 - `GET /api/monitor/dataplanes`：控制面汇总双数据平面运行摘要。

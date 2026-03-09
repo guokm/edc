@@ -226,6 +226,8 @@ docker compose down
   - 不满足时返回 `HTTP 403`（拒绝传输）
 - 协商与传输还会校验“签发资格”（DCP 展示已校验且凭证在有效期）：  
   - 不满足时返回 `HTTP 403`（拒绝协商/传输）
+- 签发资格现在额外要求：Identity 凭证中必须带 `issuanceId`，且该签发单在 Issuer 中存在并归属同一参与方。  
+  - 不满足时资格原因为：`ISSUANCE_REFERENCE_MISSING` / `ISSUANCE_NOT_FOUND` / `ISSUANCE_PARTICIPANT_MISMATCH`
 
 对应字段参考：
 
@@ -235,9 +237,10 @@ docker compose down
 
 ### 9.2 计费按什么计算
 
-当前是“**按调用次数**”模型，计费键为：
+当前是“**按调用次数 + 协议账单落库**”模型，计费键为：
 
-- `participantId + serviceCode + periodMonth(yyyyMM)`
+- `participantId + serviceCode + periodMonth(yyyyMM)`（次数校验）
+- 协商/传输成功后会写 `edc_op_billing_record`（按 `agreement_id` 挂账，协议可反查 `asset_id/offer_id`）
 
 计算逻辑（`POST /api/billing/usage/check`）：
 
@@ -261,12 +264,21 @@ docker compose down
   - `GET /api/federated/catalog` -> `FEDERATED_CATALOG_QUERY`
   - `POST /api/federated/crawl` -> `FEDERATED_CRAWL_TRIGGER`
 - Control Plane：
-  - `POST /api/contracts/negotiations` -> `CONTRACT_NEGOTIATION_CREATE`
-  - `POST /api/transfers` -> `TRANSFER_START`
+  - `POST /api/contracts/negotiations` -> `CONTRACT_NEGOTIATION_CREATE:<offerId>`
+  - `POST /api/transfers` -> `TRANSFER_START:<assetId>`
 
 注意：`治理模块接口`里的`一键巡检`包含“计费校验”检查项，会消耗一次对应服务编码额度。
 
-### 9.4 协商与传输的失败码补充
+### 9.4 运营审计事件体现
+
+- 控制面关键动作会自动写入 `edc_op_audit_event`：
+  - `ASSET_CREATED` / `ASSET_PUBLISHED`
+  - `NEGOTIATION_FINALIZED` / `NEGOTIATION_REJECTED`
+  - `TRANSFER_STARTED`
+- 前端入口：`运营方 -> 治理模块接口 -> 审计列表`
+- 接口：`GET /api/audit/events`
+
+### 9.5 协商与传输的失败码补充
 
 - 会员不满足：`HTTP 403`（ACTIVE 会员校验失败）。  
 - 签发资格不满足：`HTTP 403`（缺少已校验的 DCP 展示或凭证过期）。  

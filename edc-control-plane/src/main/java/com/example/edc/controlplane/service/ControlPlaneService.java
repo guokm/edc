@@ -121,6 +121,7 @@ public class ControlPlaneService {
      * @return 目录条目列表。
      */
     public List<CatalogEntry> listCatalog() {
+        syncAllCatalogToFederatedSafely();
         var assets = assetMapper.selectList(new LambdaQueryWrapper<CpAssetEntity>()
                 .orderByAsc(CpAssetEntity::getCreatedAt));
         var result = new ArrayList<CatalogEntry>();
@@ -396,7 +397,7 @@ public class ControlPlaneService {
         );
         createBillingRecordSafely(
                 agreementId,
-                BILLING_MODEL_NEGOTIATION_PER_OFFER + "|asset=" + request.assetId() + "|offer=" + offer.getId(),
+                BILLING_MODEL_NEGOTIATION_PER_OFFER,
                 resolvePolicyUnitPrice(offer.getPolicyId()),
                 "CNY",
                 toInstant(now),
@@ -515,10 +516,7 @@ public class ControlPlaneService {
         );
         createBillingRecordSafely(
                 agreementId,
-                BILLING_MODEL_TRANSFER_PER_ASSET_CALL
-                        + "|asset=" + agreement.getAssetId()
-                        + "|offer=" + agreement.getOfferId()
-                        + "|transfer=" + transferProcessId,
+                BILLING_MODEL_TRANSFER_PER_ASSET_CALL,
                 resolvePolicyUnitPrice(resolveAgreementPolicyId(agreement.getOfferId())),
                 "CNY",
                 Instant.now(),
@@ -1008,6 +1006,16 @@ public class ControlPlaneService {
         offer.setProviderId(providerId);
         offer.setCreatedAt(now);
         offerMapper.insert(offer);
+        publishAuditSafely(
+                "ASSET_CREATED",
+                ownerId,
+                Map.of(
+                        "assetId", assetId,
+                        "offerId", offerId,
+                        "policyId", policyId,
+                        "providerId", providerId
+                )
+        );
 
         syncAssetToFederatedSafely(
                 assetId,
@@ -1249,7 +1257,12 @@ public class ControlPlaneService {
             for (var asset : assets) {
                 var offers = offerMapper.selectList(new LambdaQueryWrapper<CpContractOfferEntity>()
                         .eq(CpContractOfferEntity::getAssetId, asset.getId()));
-                var metadata = parseMetadata(asset.getMetadataJson());
+                Map<String, Object> metadata;
+                try {
+                    metadata = parseMetadata(asset.getMetadataJson());
+                } catch (Exception ignored) {
+                    metadata = Map.of();
+                }
                 for (var offer : offers) {
                     syncAssetToFederatedSafely(
                             asset.getId(),

@@ -38,24 +38,28 @@
 
 - Identity Hub（8183）
   - `GET /api/identity/did`
-  - `POST /api/identity/credentials`
+  - `POST /api/identity/credentials`（支持 `issuanceId`，用于绑定 Issuer 签发记录）
   - `GET /api/identity/credentials/{id}`
   - `POST /api/identity/presentations`
   - `POST /api/dcp/presentations`
   - `POST /api/dcp/verification`
-  - `GET /api/dcp/qualification?participantId=...&audience=...`
+  - `GET /api/dcp/qualification?participantId=...&audience=...`（除 DCP 校验外，还会校验凭证引用的 `issuanceId` 是否存在且属于参与方）
 - Issuer Service（8184）
   - `POST /api/issuer/credentials`
+  - `GET /api/issuer/credentials/{issuanceId}`
 - Federated Catalog（8185）
   - `GET /api/federated/catalog`
   - `POST /api/federated/crawl`
+  - `POST /api/federated/internal/sync`（内部接口，需 `X-Sync-Token`）
 - Operator Services（8186）
   - `POST /api/memberships`
   - `GET /api/memberships/active?participantId=...`
   - `POST /api/policies`
   - `GET /api/policies`
   - `POST /api/audit/events`
+  - `GET /api/audit/events`
   - `POST /api/billing/records`
+  - `GET /api/billing/records`
   - `POST /api/billing/usage/check`（按次计费校验并扣减次数）
   - `GET /api/billing/usage/status?participantId=...&serviceCode=...`（查询当前使用状态，不扣减）
 

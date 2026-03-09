@@ -230,8 +230,8 @@ public class ControlPlaneGovernanceService {
                         "pricingModel", pricingModel,
                         "amount", amount,
                         "currency", currency,
-                        "periodStart", periodStart,
-                        "periodEnd", periodEnd
+                        "periodStart", periodStart == null ? Instant.now().toString() : periodStart.toString(),
+                        "periodEnd", periodEnd == null ? Instant.now().toString() : periodEnd.toString()
                 ))
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {

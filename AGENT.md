@@ -217,8 +217,16 @@ Control Plane 新增/补齐：
     - 额度不足返回 `402`。
 - 身份中心新增资格查询接口：
   - `GET /api/dcp/qualification?participantId=...&audience=...`（用于判断参与方是否具备可用资格）。
+- 身份资格校验进一步强化（2026-03-09）：
+  - Identity 凭证写入支持 `issuanceId`（`POST /api/identity/credentials`）。
+  - 资格校验除 DCP/过期外，还会校验 `claims.issuanceId` 在 Issuer 中存在且参与方一致。
+  - Issuer 新增查询接口：`GET /api/issuer/credentials/{issuanceId}`。
 - 运营服务补充只读计费查询接口：
   - `GET /api/billing/usage/status?participantId=...&serviceCode=...`（查询当前次数，不扣减）。
+- 协商与传输的计费编码改为业务维度（2026-03-09）：
+  - 协商：`CONTRACT_NEGOTIATION_CREATE:<offerId>`
+  - 传输：`TRANSFER_START:<assetId>`
+  - 协商/传输成功后会自动写入 `edc_op_billing_record`（`agreement_id` 反查资产与 Offer）。
 - 新增“编排门禁预演”权限校验（2026-03-09）：
   - 访问 `GET /api/transfers/orchestration/preview` 必须携带：
     - `X-Participant-Id: operator`
@@ -227,6 +235,16 @@ Control Plane 新增/补齐：
   - 该接口仅做门禁预演，不扣减计费额度；真实扣费发生在 `POST /api/transfers`。
 - 前端消费方页面新增治理可视化：
   - “协商治理校验”与“传输治理校验”直接展示会员记录（`mem-xxx`）与计费 `used/remaining`。
+- Federated Catalog 与控制面目录关系（2026-03-09）：
+  - 控制面资产/Offer 会镜像同步到 `edc_fc_catalog_item`（通过 `offer_id` 幂等 upsert）。
+  - 控制面新增内部同步调用：`POST /api/federated/internal/sync`（需 `X-Sync-Token`）。
+  - 关系主键：`edc_cp_contract_offer.id` -> `edc_fc_catalog_item.offer_id`。
+- 运营审计落地（2026-03-09）：
+  - 控制面关键动作会自动写入 `edc_op_audit_event`：
+    - `ASSET_CREATED` / `ASSET_PUBLISHED`
+    - `NEGOTIATION_FINALIZED` / `NEGOTIATION_REJECTED`
+    - `TRANSFER_STARTED`
+  - 前端治理页已补充“审计列表/写入审计事件/账单列表”操作按钮。
 
 ## 8.2 本轮演示增强（2026-03-08）
 

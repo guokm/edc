@@ -268,20 +268,28 @@ PY
 assert_min "registered dataplanes" "$dataplane_size" 2
 
 cp_asset_count="$(query_count 'select count(*) from edc_cp_asset;')"
+cp_offer_count="$(query_count 'select count(*) from edc_cp_contract_offer;')"
 cp_neg_count="$(query_count 'select count(*) from edc_cp_contract_negotiation;')"
 cp_transfer_count="$(query_count 'select count(*) from edc_cp_transfer_process;')"
 cp_dp_count="$(query_count 'select count(*) from edc_cp_data_plane_instance;')"
 cp_transfer_dp_distinct="$(query_count 'select count(distinct data_plane_id) from edc_cp_transfer_process;')"
 dp_transfer_count="$(query_count 'select count(*) from edc_dp_transfer_process;')"
 dp_transfer_dp_distinct="$(query_count 'select count(distinct data_plane_id) from edc_dp_transfer_process;')"
+fc_offer_match_count="$(query_count 'select count(*) from edc_fc_catalog_item f join edc_cp_contract_offer o on f.offer_id = o.id;')"
+audit_event_count="$(query_count 'select count(*) from edc_op_audit_event;')"
+billing_record_count="$(query_count 'select count(*) from edc_op_billing_record;')"
 
 assert_min "edc_cp_asset" "$cp_asset_count" 3
+assert_min "edc_cp_contract_offer" "$cp_offer_count" 3
 assert_min "edc_cp_contract_negotiation" "$cp_neg_count" 3
 assert_min "edc_cp_transfer_process" "$cp_transfer_count" 3
 assert_min "edc_cp_data_plane_instance" "$cp_dp_count" 2
 assert_min "edc_cp_transfer_process distinct data_plane_id" "$cp_transfer_dp_distinct" 2
 assert_min "edc_dp_transfer_process" "$dp_transfer_count" 3
 assert_min "edc_dp_transfer_process distinct data_plane_id" "$dp_transfer_dp_distinct" 2
+assert_min "edc_fc_catalog_item mirrored offers" "$fc_offer_match_count" "$cp_offer_count"
+assert_min "edc_op_audit_event" "$audit_event_count" 1
+assert_min "edc_op_billing_record" "$billing_record_count" 1
 
 log "补充验证其余后端模块接口"
 check_code "catalog" "http://localhost:8181/api/catalog" "200"
@@ -307,11 +315,15 @@ fi
 
 log "持久化统计"
 printf '  edc_cp_asset                                  = %s\n' "$cp_asset_count"
+printf '  edc_cp_contract_offer                         = %s\n' "$cp_offer_count"
 printf '  edc_cp_contract_negotiation                   = %s\n' "$cp_neg_count"
 printf '  edc_cp_transfer_process                       = %s\n' "$cp_transfer_count"
 printf '  edc_cp_data_plane_instance                    = %s\n' "$cp_dp_count"
 printf '  edc_cp_transfer_process distinct data_plane   = %s\n' "$cp_transfer_dp_distinct"
 printf '  edc_dp_transfer_process                       = %s\n' "$dp_transfer_count"
 printf '  edc_dp_transfer_process distinct data_plane   = %s\n' "$dp_transfer_dp_distinct"
+printf '  edc_fc_catalog_item mirrored offers           = %s\n' "$fc_offer_match_count"
+printf '  edc_op_audit_event                            = %s\n' "$audit_event_count"
+printf '  edc_op_billing_record                         = %s\n' "$billing_record_count"
 
 log "Maven/JDK21 商业流程验证通过"

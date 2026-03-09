@@ -34,25 +34,32 @@
 - 身份中心：
   - `edc_ih_credential.id` -> `edc_ih_presentation.credential_id`
 - 发行服务：
-  - `edc_is_issuance.credential_id`（签发凭证主键链路）
+  - `edc_is_issuance.issuance_id`（签发单主键）
+  - Identity 凭证 `claims.issuanceId` -> `edc_is_issuance.issuance_id`（签发资格校验）
 - 联邦目录：
+  - `edc_cp_contract_offer.id` -> `edc_fc_catalog_item.offer_id`（控制面 Offer 镜像）
+  - `edc_cp_asset.id` -> `edc_fc_catalog_item.asset_id`（资产镜像）
   - `edc_fc_crawl_job.id`（爬取任务）与 `edc_fc_catalog_item.*`（目录结果）按任务结果关联
 - 运营会员：
   - `edc_op_membership.participant_id` 与业务侧 `consumer_id/participantId` 关联，并在协商/传输前执行 ACTIVE 校验
 - 运营计费：
   - `edc_op_billing_plan(participant_id, service_code)` 定义可用次数上限
   - `edc_op_usage_counter(participant_id, service_code, period_month)` 记录每月已用次数
-  - 业务模块调用 `/api/billing/usage/check` 先校验后扣减
+  - 业务模块调用 `/api/billing/usage/check` 先校验后扣减（协商按 `offerId`，传输按 `assetId`）
+  - `edc_op_billing_record.agreement_id` 与协议关联（可反查 `asset_id/offer_id`）
+- 运营审计：
+  - 控制面关键动作写入 `edc_op_audit_event`，用于运营追踪与追责
 
 ## 4. 业务流转（端到端）
 
-1. 资产与要约创建：写入 `edc_cp_asset`、`edc_cp_contract_offer`（一资产可多 Offer）。  
+1. 资产与要约创建：写入 `edc_cp_asset`、`edc_cp_contract_offer`（一资产可多 Offer），并同步镜像到 `edc_fc_catalog_item`。  
 2. 合同协商：按 `offer_id` 发起并写入 `edc_cp_contract_negotiation`。  
-3. 协议生成：写入 `edc_cp_contract_agreement`，保留 `offer_id` 追踪套餐来源。  
-4. 发起传输：控制面选定 `data_plane_id`，写入 `edc_cp_transfer_process`（`REQUESTED`）。  
+3. 协议生成：写入 `edc_cp_contract_agreement`，保留 `offer_id` 追踪套餐来源，并写入协商账单 `edc_op_billing_record`。  
+4. 发起传输：控制面选定 `data_plane_id`，写入 `edc_cp_transfer_process`（`REQUESTED`），并写入传输账单 `edc_op_billing_record`。  
 5. 数据面执行传输：以同一 `transfer_process_id` 写入/更新 `edc_dp_transfer_process`（`STARTED`）。  
 6. 生成 EDR：写入 `edc_dp_edr`，并回填控制面 `edc_cp_transfer_process.edr_endpoint/edr_auth_token`。  
 7. 消费端拉取数据：通过 EDR endpoint + token 访问数据面接口。  
+8. 全链路审计：`ASSET_* / NEGOTIATION_* / TRANSFER_*` 事件写入 `edc_op_audit_event`。  
 
 ## 5. 一致性约束（当前实现）
 
