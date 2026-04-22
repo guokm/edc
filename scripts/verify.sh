@@ -5,6 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 GATEWAY_BASE="${GATEWAY_BASE:-${EDC_PUBLIC_BASE_URL:-http://localhost:18080}}"
+CONTROL_BASE="${CONTROL_BASE:-${GATEWAY_BASE}/cp}"
+IDENTITY_BASE="${IDENTITY_BASE:-${GATEWAY_BASE}/ih}"
+ISSUER_BASE="${ISSUER_BASE:-${GATEWAY_BASE}/is}"
+FEDERATED_BASE="${FEDERATED_BASE:-${GATEWAY_BASE}/fc}"
+OPERATOR_BASE="${OPERATOR_BASE:-${GATEWAY_BASE}/op}"
+DP1_BASE="${DP1_BASE:-${GATEWAY_BASE}/dp1}"
+DP2_BASE="${DP2_BASE:-${GATEWAY_BASE}/dp2}"
 
 log() {
   printf '[verify-maven] %s\n' "$1"
@@ -79,7 +86,7 @@ wait_dataplanes_ready() {
   local code
   local count=0
   for ((i=1; i<=retries; i++)); do
-    code=$(curl -s -o /tmp/dataplanes-ready.json -w "%{http_code}" "http://localhost:8181/api/dataplanes" || true)
+    code=$(curl -s -o /tmp/dataplanes-ready.json -w "%{http_code}" "${CONTROL_BASE}/api/dataplanes" || true)
     if [[ "$code" == "200" ]]; then
       count=$(python3 - <<'PY'
 import json
@@ -114,25 +121,22 @@ log "启动 Maven/SpringBoot 全栈（含双 Data Plane）"
 docker compose up -d --build >/dev/null
 
 log "服务健康检查"
-for port in 8181 8182 8183 8184 8185 8186 8187; do
-  check_code "health-${port}" "http://localhost:${port}/actuator/health" "200"
-done
 check_code "frontend-index" "${GATEWAY_BASE}" "200"
 if ! grep -q "EDC 商用数据空间控制台" /tmp/frontend-index.json; then
   echo "ERROR: frontend title not found" >&2
   exit 1
 fi
-check_code "gateway-cp" "${GATEWAY_BASE}/cp/actuator/health" "200"
-check_code "gateway-ih" "${GATEWAY_BASE}/ih/actuator/health" "200"
-check_code "gateway-is" "${GATEWAY_BASE}/is/actuator/health" "200"
-check_code "gateway-fc" "${GATEWAY_BASE}/fc/actuator/health" "200"
-check_code "gateway-op" "${GATEWAY_BASE}/op/actuator/health" "200"
-check_code "gateway-dp1" "${GATEWAY_BASE}/dp1/actuator/health" "200"
-check_code "gateway-dp2" "${GATEWAY_BASE}/dp2/actuator/health" "200"
+check_code "gateway-cp" "${CONTROL_BASE}/actuator/health" "200"
+check_code "gateway-ih" "${IDENTITY_BASE}/actuator/health" "200"
+check_code "gateway-is" "${ISSUER_BASE}/actuator/health" "200"
+check_code "gateway-fc" "${FEDERATED_BASE}/actuator/health" "200"
+check_code "gateway-op" "${OPERATOR_BASE}/actuator/health" "200"
+check_code "gateway-dp1" "${DP1_BASE}/actuator/health" "200"
+check_code "gateway-dp2" "${DP2_BASE}/actuator/health" "200"
 wait_dataplanes_ready
 
 log "运行控制面完整流程（生成资产/协商/传输）"
-check_post_with_participant "qual-issuance" "http://localhost:8184/api/issuer/credentials" "participant-b" '{"type":"CommercialAccessCredential","issuer":"issuer-A","claims":{"participant":"participant-b","scope":"CATALOG_ACCESS"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
+check_post_with_participant "qual-issuance" "${ISSUER_BASE}/api/issuer/credentials" "participant-b" '{"type":"CommercialAccessCredential","issuer":"issuer-A","claims":{"participant":"participant-b","scope":"CATALOG_ACCESS"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
 issuance_id=$(python3 - <<'PY'
 import json
 with open("/tmp/qual-issuance.json", "r", encoding="utf-8") as f:
@@ -144,7 +148,7 @@ if [[ -z "$issuance_id" ]]; then
   echo "ERROR: qualification issuance id missing" >&2
   exit 1
 fi
-check_post_with_participant "qual-cred" "http://localhost:8183/api/identity/credentials" "participant-b" "{\"type\":\"MembershipCredential\",\"issuer\":\"issuer-A\",\"claims\":{\"participant\":\"participant-b\",\"scope\":\"CATALOG_ACCESS\"},\"expiresAt\":\"2026-12-31T00:00:00Z\",\"issuanceId\":\"${issuance_id}\"}" "200"
+check_post_with_participant "qual-cred" "${IDENTITY_BASE}/api/identity/credentials" "participant-b" "{\"type\":\"MembershipCredential\",\"issuer\":\"issuer-A\",\"claims\":{\"participant\":\"participant-b\",\"scope\":\"CATALOG_ACCESS\"},\"expiresAt\":\"2026-12-31T00:00:00Z\",\"issuanceId\":\"${issuance_id}\"}" "200"
 credential_id=$(python3 - <<'PY'
 import json
 with open("/tmp/qual-cred.json", "r", encoding="utf-8") as f:
@@ -156,7 +160,7 @@ if [[ -z "$credential_id" ]]; then
   echo "ERROR: qualification credential id missing" >&2
   exit 1
 fi
-check_post_with_participant "qual-presentation" "http://localhost:8183/api/dcp/presentations" "participant-b" "{\"credentialId\":\"${credential_id}\",\"audience\":\"participant-a\"}" "200"
+check_post_with_participant "qual-presentation" "${IDENTITY_BASE}/api/dcp/presentations" "participant-b" "{\"credentialId\":\"${credential_id}\",\"audience\":\"participant-a\"}" "200"
 presentation_id=$(python3 - <<'PY'
 import json
 with open("/tmp/qual-presentation.json", "r", encoding="utf-8") as f:
@@ -168,8 +172,8 @@ if [[ -z "$presentation_id" ]]; then
   echo "ERROR: qualification presentation id missing" >&2
   exit 1
 fi
-check_post_with_participant "qual-verify" "http://localhost:8183/api/dcp/verification" "participant-a" "{\"presentationId\":\"${presentation_id}\"}" "200"
-check_code "qual-status" "http://localhost:8183/api/dcp/qualification?participantId=participant-b" "200"
+check_post_with_participant "qual-verify" "${IDENTITY_BASE}/api/dcp/verification" "participant-a" "{\"presentationId\":\"${presentation_id}\"}" "200"
+check_code "qual-status" "${IDENTITY_BASE}/api/dcp/qualification?participantId=participant-b" "200"
 qualification_ok=$(python3 - <<'PY'
 import json
 with open("/tmp/qual-status.json", "r", encoding="utf-8") as f:
@@ -182,9 +186,9 @@ if [[ "$qualification_ok" != "true" ]]; then
   exit 1
 fi
 
-check_post "scenario-run" "http://localhost:8181/api/scenario/run" '{"assetCount":3,"consumerId":"participant-b"}' "200"
+check_post "scenario-run" "${CONTROL_BASE}/api/scenario/run" '{"assetCount":3,"consumerId":"participant-b"}' "200"
 
-check_code "agreements-list" "http://localhost:8181/api/contracts/agreements" "200"
+check_code "agreements-list" "${CONTROL_BASE}/api/contracts/agreements" "200"
 agreement_id=$(python3 - <<'PY'
 import json
 with open("/tmp/agreements-list.json", "r", encoding="utf-8") as f:
@@ -198,7 +202,7 @@ if [[ -z "$agreement_id" ]]; then
 fi
 
 orchestration_forbidden_code=$(curl -s -o /tmp/orchestration-preview-forbidden.json -w "%{http_code}" \
-  "http://localhost:8181/api/transfers/orchestration/preview?agreementId=${agreement_id}" || true)
+  "${CONTROL_BASE}/api/transfers/orchestration/preview?agreementId=${agreement_id}" || true)
 printf '%-24s %s\n' "orchestration-403" "$orchestration_forbidden_code"
 if [[ "$orchestration_forbidden_code" != "403" ]]; then
   echo "ERROR: orchestration preview without permission expected 403, got ${orchestration_forbidden_code}" >&2
@@ -210,7 +214,7 @@ orchestration_allowed_code=$(curl -s \
   -H "X-Operator-Token: operator-demo-key" \
   -o /tmp/orchestration-preview-200.json \
   -w "%{http_code}" \
-  "http://localhost:8181/api/transfers/orchestration/preview?agreementId=${agreement_id}" || true)
+  "${CONTROL_BASE}/api/transfers/orchestration/preview?agreementId=${agreement_id}" || true)
 printf '%-24s %s\n' "orchestration-200" "$orchestration_allowed_code"
 if [[ "$orchestration_allowed_code" != "200" ]]; then
   echo "ERROR: orchestration preview with permission expected 200, got ${orchestration_allowed_code}" >&2
@@ -239,7 +243,7 @@ if [[ -z "$transfer_id" ]]; then
   exit 1
 fi
 
-check_code "transfer-edr" "http://localhost:8181/api/transfers/${transfer_id}/edr" "200"
+check_code "transfer-edr" "${CONTROL_BASE}/api/transfers/${transfer_id}/edr" "200"
 edr_endpoint=$(python3 - <<'PY'
 import json
 with open("/tmp/transfer-edr.json", "r", encoding="utf-8") as f:
@@ -273,7 +277,7 @@ if [[ "$pull_code" != "200" ]]; then
 fi
 
 log "验证双 Data Plane 注册与持久化"
-check_code "dataplanes-list" "http://localhost:8181/api/dataplanes" "200"
+check_code "dataplanes-list" "${CONTROL_BASE}/api/dataplanes" "200"
 dataplane_size=$(python3 - <<'PY'
 import json
 with open("/tmp/dataplanes-list.json", "r", encoding="utf-8") as f:
@@ -308,15 +312,15 @@ assert_min "edc_op_audit_event" "$audit_event_count" 1
 assert_min "edc_op_billing_record" "$billing_record_count" 1
 
 log "补充验证其余后端模块接口"
-check_code "catalog" "http://localhost:8181/api/catalog" "200"
-check_code "dp1-info" "http://localhost:8182/api/dataplane/info" "200"
-check_code "dp2-info" "http://localhost:8187/api/dataplane/info" "200"
-check_code "id-did" "http://localhost:8183/api/identity/did" "200"
-check_post "id-cred" "http://localhost:8183/api/identity/credentials" '{"type":"MembershipCredential","issuer":"issuer-A","claims":{"level":"GOLD"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
-check_post "issuer-cred" "http://localhost:8184/api/issuer/credentials" '{"type":"MembershipCredential","issuer":"issuer-A","claims":{"level":"GOLD"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
-check_code "fed-catalog" "http://localhost:8185/api/federated/catalog" "200"
-check_post "op-member" "http://localhost:8186/api/memberships" '{"participantId":"participant-a","level":"GOLD","validTo":"2026-12-31T00:00:00Z"}' "200"
-check_post "billing-check" "http://localhost:8186/api/billing/usage/check" '{"participantId":"participant-a","serviceCode":"ISSUER_CREDENTIAL_ISSUE"}' "200"
+check_code "catalog" "${CONTROL_BASE}/api/catalog" "200"
+check_code "dp1-info" "${DP1_BASE}/api/dataplane/info" "200"
+check_code "dp2-info" "${DP2_BASE}/api/dataplane/info" "200"
+check_code "id-did" "${IDENTITY_BASE}/api/identity/did" "200"
+check_post "id-cred" "${IDENTITY_BASE}/api/identity/credentials" '{"type":"MembershipCredential","issuer":"issuer-A","claims":{"level":"GOLD"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
+check_post "issuer-cred" "${ISSUER_BASE}/api/issuer/credentials" '{"type":"MembershipCredential","issuer":"issuer-A","claims":{"level":"GOLD"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
+check_code "fed-catalog" "${FEDERATED_BASE}/api/federated/catalog" "200"
+check_post "op-member" "${OPERATOR_BASE}/api/memberships" '{"participantId":"participant-a","level":"GOLD","validTo":"2026-12-31T00:00:00Z"}' "200"
+check_post "billing-check" "${OPERATOR_BASE}/api/billing/usage/check" '{"participantId":"participant-a","serviceCode":"ISSUER_CREDENTIAL_ISSUE"}' "200"
 billing_allowed=$(python3 - <<'PY'
 import json
 with open("/tmp/billing-check.json", "r", encoding="utf-8") as f:

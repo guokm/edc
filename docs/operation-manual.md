@@ -28,7 +28,7 @@ mvn -q -DskipTests package
 docker compose up -d --build
 ```
 
-说明：当前编排为单入口网关模式，Docker 内置网关绑定 `127.0.0.1:18080`，服务器对外访问建议由宿主机 Nginx 的 80/443 反代进入；后端端口仅绑定本机 `127.0.0.1`。
+说明：当前编排为单入口网关模式，Docker 内置网关绑定 `127.0.0.1:18080`，服务器对外访问建议由宿主机 Nginx 的 80/443 反代进入；后端服务端口仅在 Docker 网络内互通，不映射宿主机端口。
 
 ### 3.3 健康检查
 
@@ -42,14 +42,6 @@ curl -s http://localhost:18080/fc/actuator/health
 curl -s http://localhost:18080/op/actuator/health
 curl -s http://localhost:18080/dp1/actuator/health
 curl -s http://localhost:18080/dp2/actuator/health
-```
-
-服务器本机直连调试：
-
-```bash
-for p in 8181 8182 8183 8184 8185 8186 8187; do
-  curl -s -o /tmp/h_$p.json -w "port $p => %{http_code}\n" http://localhost:$p/actuator/health
-done
 ```
 
 前端统一巡检接口（推荐）：
