@@ -1,6 +1,21 @@
 # API 参考（Maven 核心版）
 
-## 1. Control Plane（8181）
+## 0. 对外访问方式
+
+当前 Docker Compose 使用 `frontend` 容器内置 Nginx 作为统一入口。
+
+- 浏览器/外部调用统一入口：`http://<host>:18080`
+- Control Plane 前缀：`/cp`
+- Identity Hub 前缀：`/ih`
+- Issuer Service 前缀：`/is`
+- Federated Catalog 前缀：`/fc`
+- Operator Services 前缀：`/op`
+- Data Plane 1 前缀：`/dp1`
+- Data Plane 2 前缀：`/dp2`
+
+例如：`GET /cp/api/catalog` 会被网关转发到控制面 `GET /api/catalog`。后文列出的接口均为服务内部原始路径，外部访问时需要加对应前缀。
+
+## 1. Control Plane（外部前缀 `/cp`，内部端口 8181）
 
 - `GET /api/catalog`：查询目录（每个资产返回 `offers[]`）
 - `GET /api/catalog/{assetId}`：查询资产目录详情（包含该资产全部 `offers[]`）
@@ -24,7 +39,7 @@
 - `POST /api/scenario/run`：生成测试数据并跑完整流程
 - `POST /api/scenario/dual-plane-demo`：强制 dp-1 / dp-2 双平面传输演示
 
-## 2. Data Plane（8182 / 8187）
+## 2. Data Plane（外部前缀 `/dp1` / `/dp2`，内部端口 8182）
 
 - `POST /api/transfer/start`
 - `POST /api/transfer/suspend`
@@ -36,7 +51,7 @@
 
 ## 3. 其他模块
 
-- Identity Hub（8183）
+- Identity Hub（外部前缀 `/ih`，内部端口 8183）
   - `GET /api/identity/did`
   - `POST /api/identity/credentials`（支持 `issuanceId`，用于绑定 Issuer 签发记录）
   - `GET /api/identity/credentials/{id}`
@@ -44,14 +59,14 @@
   - `POST /api/dcp/presentations`
   - `POST /api/dcp/verification`
   - `GET /api/dcp/qualification?participantId=...&audience=...`（除 DCP 校验外，还会校验凭证引用的 `issuanceId` 是否存在且属于参与方）
-- Issuer Service（8184）
+- Issuer Service（外部前缀 `/is`，内部端口 8184）
   - `POST /api/issuer/credentials`
   - `GET /api/issuer/credentials/{issuanceId}`
-- Federated Catalog（8185）
+- Federated Catalog（外部前缀 `/fc`，内部端口 8185）
   - `GET /api/federated/catalog`
   - `POST /api/federated/crawl`
   - `POST /api/federated/internal/sync`（内部接口，需 `X-Sync-Token`）
-- Operator Services（8186）
+- Operator Services（外部前缀 `/op`，内部端口 8186）
   - `POST /api/memberships`
   - `GET /api/memberships/active?participantId=...`
   - `POST /api/policies`
@@ -63,4 +78,4 @@
   - `POST /api/billing/usage/check`（按次计费校验并扣减次数）
   - `GET /api/billing/usage/status?participantId=...&serviceCode=...`（查询当前使用状态，不扣减）
 
-这些接口保持原路径，可通过 `./scripts/verify.sh` 一并验证可用性。
+这些接口保持服务内部原路径，外部通过网关前缀访问，可通过 `./scripts/verify.sh` 一并验证可用性。

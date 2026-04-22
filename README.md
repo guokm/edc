@@ -64,7 +64,7 @@ docker compose exec -T mysql env MYSQL_PWD=edc mysql -u edc -D edc < docs/sql/my
 
 ## 关键端口（单入口）
 
-- 前端+网关 Nginx：18080（对外）
+- 前端+网关 Nginx：127.0.0.1:18080（宿主机 Nginx upstream）
 - Zookeeper：12181（宿主机本地）
 - 控制面：8181（仅 `127.0.0.1`）
 - 数据面1：8182（仅 `127.0.0.1`）
@@ -75,3 +75,8 @@ docker compose exec -T mysql env MYSQL_PWD=edc mysql -u edc -D edc < docs/sql/my
 - 运营服务：8186（仅 `127.0.0.1`）
 - MySQL：13306（仅 `127.0.0.1`）
 - Kafka：9092 / 29092（仅 `127.0.0.1`）
+
+## 服务器部署提示
+
+- 生产部署建议复制 `.env.example` 为 `.env`，并把 `EDC_PUBLIC_BASE_URL` 改成宿主机 Nginx 对外域名。
+- `EDC_PUBLIC_BASE_URL` 会写入 Data Plane 返回的 EDR endpoint，必须是消费方浏览器可访问的地址。

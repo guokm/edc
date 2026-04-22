@@ -19,8 +19,38 @@
 - `frontend` 容器内置 Nginx（`docker/nginx/default.conf`），承担两件事：
   - 静态页面托管（Vue3）
   - 统一反向代理后端接口（`/cp` `/ih` `/is` `/fc` `/op` `/dp1` `/dp2`）
-- 浏览器只访问一个入口：`http://<服务器IP>:18080`
+- Docker 内置网关只绑定宿主机本机：`127.0.0.1:18080`
+- 服务器对外建议使用已有宿主机 Nginx 的 80/443，反向代理到 `127.0.0.1:18080`
 - 后端端口均绑定 `127.0.0.1`，不对外暴露。
+
+## 2.1 宿主机 Nginx 接入示例
+
+如果服务器已有 Nginx，对外只开放 80/443，推荐把域名反代到 Docker 内置网关：
+
+```nginx
+server {
+    listen 80;
+    server_name your.domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+生产域名部署时同步设置：
+
+```bash
+cp .env.example .env
+sed -i 's#http://localhost:18080#https://your.domain.com#' .env
+docker compose up -d --build
+```
+
+`EDC_PUBLIC_BASE_URL` 会影响 Data Plane 返回的 EDR endpoint，必须是浏览器或消费方能够访问的外部地址。
 
 ## 3. 启动命令
 
@@ -58,7 +88,8 @@ docker compose exec -T mysql env MYSQL_PWD=edc mysql -u edc -D edc < docs/sql/my
 
 ## 8. 关键端口（当前编排）
 
-- 对外入口（前端+网关）：`18080`
+- Docker 内置入口（前端+网关）：`127.0.0.1:18080`
+- 推荐对外入口：宿主机 Nginx `80/443`
 - Zookeeper（宿主机映射）：`12181`
 - 控制面：`127.0.0.1:8181`
 - 数据面1：`127.0.0.1:8182`

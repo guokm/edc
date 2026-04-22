@@ -28,9 +28,23 @@ mvn -q -DskipTests package
 docker compose up -d --build
 ```
 
-说明：当前编排为单入口网关模式，对外访问统一走 `18080`，后端端口仅绑定本机 `127.0.0.1`。
+说明：当前编排为单入口网关模式，Docker 内置网关绑定 `127.0.0.1:18080`，服务器对外访问建议由宿主机 Nginx 的 80/443 反代进入；后端端口仅绑定本机 `127.0.0.1`。
 
 ### 3.3 健康检查
+
+对外入口健康检查（推荐）：
+
+```bash
+curl -s http://localhost:18080/cp/actuator/health
+curl -s http://localhost:18080/ih/actuator/health
+curl -s http://localhost:18080/is/actuator/health
+curl -s http://localhost:18080/fc/actuator/health
+curl -s http://localhost:18080/op/actuator/health
+curl -s http://localhost:18080/dp1/actuator/health
+curl -s http://localhost:18080/dp2/actuator/health
+```
+
+服务器本机直连调试：
 
 ```bash
 for p in 8181 8182 8183 8184 8185 8186 8187; do
@@ -41,29 +55,29 @@ done
 前端统一巡检接口（推荐）：
 
 ```bash
-curl -s http://localhost:8181/api/monitor/health
-curl -s http://localhost:8181/api/monitor/governance
-curl -s http://localhost:8181/api/monitor/dataplanes
+curl -s http://localhost:18080/cp/api/monitor/health
+curl -s http://localhost:18080/cp/api/monitor/governance
+curl -s http://localhost:18080/cp/api/monitor/dataplanes
 ```
 
 ### 3.4 运行核心场景
 
 ```bash
 curl -s -H 'Content-Type: application/json' -X POST \
-  http://localhost:8181/api/scenario/run \
+  http://localhost:18080/cp/api/scenario/run \
   -d '{"assetCount":3,"consumerId":"participant-b"}'
 ```
 
 ### 3.5 查看 Data Plane 注册
 
 ```bash
-curl -s http://localhost:8181/api/dataplanes
+curl -s http://localhost:18080/cp/api/dataplanes
 ```
 
 ### 3.6 按传输 ID 查询 EDR
 
 ```bash
-curl -s http://localhost:8181/api/transfers/<transferId>/edr
+curl -s http://localhost:18080/cp/api/transfers/<transferId>/edr
 ```
 
 ### 3.7 数据拉取
@@ -76,7 +90,7 @@ curl -s -H "Authorization: <authToken>" "<endpoint>?message=hello"
 
 ```bash
 curl -s -H 'Content-Type: application/json' -X POST \
-  http://localhost:8186/api/billing/usage/check \
+  http://localhost:18080/op/api/billing/usage/check \
   -d '{"participantId":"participant-a","serviceCode":"ISSUER_CREDENTIAL_ISSUE"}'
 ```
 
@@ -112,7 +126,7 @@ docker compose down
 
 ## 7. 前端按角色操作说明
 
-访问：`http://localhost:18080`
+本机访问：`http://localhost:18080`。服务器部署时访问宿主机 Nginx 配置的域名，例如 `https://your.domain.com`。
 
 页面列表统一规则：时间列 + 时间倒序 + 默认每页 10 条。
 

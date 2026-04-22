@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+GATEWAY_BASE="${GATEWAY_BASE:-${EDC_PUBLIC_BASE_URL:-http://localhost:18080}}"
+
 log() {
   printf '[verify-maven] %s\n' "$1"
 }
@@ -115,11 +117,18 @@ log "服务健康检查"
 for port in 8181 8182 8183 8184 8185 8186 8187; do
   check_code "health-${port}" "http://localhost:${port}/actuator/health" "200"
 done
-check_code "frontend-index" "http://localhost:18080" "200"
+check_code "frontend-index" "${GATEWAY_BASE}" "200"
 if ! grep -q "EDC 商用数据空间控制台" /tmp/frontend-index.json; then
   echo "ERROR: frontend title not found" >&2
   exit 1
 fi
+check_code "gateway-cp" "${GATEWAY_BASE}/cp/actuator/health" "200"
+check_code "gateway-ih" "${GATEWAY_BASE}/ih/actuator/health" "200"
+check_code "gateway-is" "${GATEWAY_BASE}/is/actuator/health" "200"
+check_code "gateway-fc" "${GATEWAY_BASE}/fc/actuator/health" "200"
+check_code "gateway-op" "${GATEWAY_BASE}/op/actuator/health" "200"
+check_code "gateway-dp1" "${GATEWAY_BASE}/dp1/actuator/health" "200"
+check_code "gateway-dp2" "${GATEWAY_BASE}/dp2/actuator/health" "200"
 wait_dataplanes_ready
 
 log "运行控制面完整流程（生成资产/协商/传输）"
@@ -249,6 +258,13 @@ if [[ -z "$edr_endpoint" || -z "$edr_token" ]]; then
   echo "ERROR: invalid EDR response" >&2
   exit 1
 fi
+case "$edr_endpoint" in
+  "$GATEWAY_BASE"/dp1/*|"$GATEWAY_BASE"/dp2/*) ;;
+  *)
+    echo "ERROR: EDR endpoint expected to be exposed by gateway ${GATEWAY_BASE}/dp1|dp2, got ${edr_endpoint}" >&2
+    exit 1
+    ;;
+esac
 pull_code=$(curl -s -H "Authorization: ${edr_token}" -o /tmp/transfer-pull.json -w "%{http_code}" "${edr_endpoint}?message=verify")
 printf '%-24s %s\n' "transfer-pull" "$pull_code"
 if [[ "$pull_code" != "200" ]]; then
