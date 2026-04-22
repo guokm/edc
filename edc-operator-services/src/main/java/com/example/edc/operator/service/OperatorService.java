@@ -8,19 +8,36 @@ import com.example.edc.common.model.Policy;
 import com.example.edc.operator.dto.AuditRequest;
 import com.example.edc.operator.dto.BillingRequest;
 import com.example.edc.operator.dto.BillingUsageCheckResponse;
+import com.example.edc.operator.dto.CurrentUserResponse;
+import com.example.edc.operator.dto.LoginRequest;
+import com.example.edc.operator.dto.LoginResponse;
 import com.example.edc.operator.dto.MembershipRequest;
+import com.example.edc.operator.dto.OrganizationRequest;
+import com.example.edc.operator.dto.OrganizationView;
+import com.example.edc.operator.dto.ParticipantRequest;
+import com.example.edc.operator.dto.ParticipantView;
 import com.example.edc.operator.dto.PolicyRequest;
+import com.example.edc.operator.dto.UserAccountRequest;
+import com.example.edc.operator.dto.UserAccountView;
 import com.example.edc.operator.entity.OpAuditEventEntity;
 import com.example.edc.operator.entity.OpBillingPlanEntity;
 import com.example.edc.operator.entity.OpBillingRecordEntity;
+import com.example.edc.operator.entity.OpLoginSessionEntity;
 import com.example.edc.operator.entity.OpMembershipEntity;
+import com.example.edc.operator.entity.OpOrganizationEntity;
+import com.example.edc.operator.entity.OpParticipantEntity;
 import com.example.edc.operator.entity.OpPolicyEntity;
+import com.example.edc.operator.entity.OpUserAccountEntity;
 import com.example.edc.operator.entity.OpUsageCounterEntity;
 import com.example.edc.operator.mapper.OpAuditEventMapper;
 import com.example.edc.operator.mapper.OpBillingPlanMapper;
 import com.example.edc.operator.mapper.OpBillingRecordMapper;
+import com.example.edc.operator.mapper.OpLoginSessionMapper;
 import com.example.edc.operator.mapper.OpMembershipMapper;
+import com.example.edc.operator.mapper.OpOrganizationMapper;
+import com.example.edc.operator.mapper.OpParticipantMapper;
 import com.example.edc.operator.mapper.OpPolicyMapper;
+import com.example.edc.operator.mapper.OpUserAccountMapper;
 import com.example.edc.operator.mapper.OpUsageCounterMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,24 +47,48 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+
+import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
 public class OperatorService {
+    private static final String DEFAULT_OPERATOR_PARTICIPANT = "operator";
     private static final String DEFAULT_PARTICIPANT = "participant-a";
     private static final String DEFAULT_CONSUMER_PARTICIPANT = "participant-b";
+    private static final String DEFAULT_ACCOUNT_PASSWORD = "ChangeMe@123";
+    private static final String ROLE_PLATFORM_ADMIN = "PLATFORM_ADMIN";
+    private static final String ROLE_PROVIDER_ADMIN = "PROVIDER_ADMIN";
+    private static final String ROLE_CONSUMER_ADMIN = "CONSUMER_ADMIN";
+    private static final String ROLE_AUDITOR = "AUDITOR";
+    private static final int SESSION_HOURS = 12;
+    private static final int PASSWORD_ITERATIONS = 120_000;
+    private static final int PASSWORD_KEY_LENGTH = 256;
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
 
+    private final OpOrganizationMapper organizationMapper;
+    private final OpParticipantMapper participantMapper;
+    private final OpUserAccountMapper userAccountMapper;
+    private final OpLoginSessionMapper loginSessionMapper;
     private final OpMembershipMapper membershipMapper;
     private final OpPolicyMapper policyMapper;
     private final OpAuditEventMapper auditEventMapper;
@@ -55,8 +96,13 @@ public class OperatorService {
     private final OpBillingPlanMapper billingPlanMapper;
     private final OpUsageCounterMapper usageCounterMapper;
     private final ObjectMapper objectMapper;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public OperatorService(
+            OpOrganizationMapper organizationMapper,
+            OpParticipantMapper participantMapper,
+            OpUserAccountMapper userAccountMapper,
+            OpLoginSessionMapper loginSessionMapper,
             OpMembershipMapper membershipMapper,
             OpPolicyMapper policyMapper,
             OpAuditEventMapper auditEventMapper,
@@ -64,6 +110,10 @@ public class OperatorService {
             OpBillingPlanMapper billingPlanMapper,
             OpUsageCounterMapper usageCounterMapper,
             ObjectMapper objectMapper) {
+        this.organizationMapper = organizationMapper;
+        this.participantMapper = participantMapper;
+        this.userAccountMapper = userAccountMapper;
+        this.loginSessionMapper = loginSessionMapper;
         this.membershipMapper = membershipMapper;
         this.policyMapper = policyMapper;
         this.auditEventMapper = auditEventMapper;
@@ -74,12 +124,246 @@ public class OperatorService {
     }
 
     /**
+     * 使用本地运营账号登录，并生成 12 小时有效的运营会话令牌。
+     *
+     * @param request 登录请求，包含用户名和密码。
+     * @return 登录令牌、用户视图与过期时间。
+     */
+    public LoginResponse login(LoginRequest request) {
+        var user = userAccountMapper.selectOne(new LambdaQueryWrapper<OpUserAccountEntity>()
+                .eq(OpUserAccountEntity::getUsername, request.username())
+                .last("limit 1"));
+        if (user == null || !"ACTIVE".equals(user.getStatus()) || !verifyPassword(request.password(), user.getPasswordHash())) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid username or password");
+        }
+
+        var now = LocalDateTime.now();
+        var session = new OpLoginSessionEntity();
+        session.setToken("op-token-" + UUID.randomUUID());
+        session.setUserId(user.getId());
+        session.setCreatedAt(now);
+        session.setLastSeenAt(now);
+        session.setExpiresAt(now.plusHours(SESSION_HOURS));
+        session.setStatus("ACTIVE");
+        loginSessionMapper.insert(session);
+
+        createAuditEventSafely("OPERATOR_LOGIN", user, Map.of(
+                "username", user.getUsername(),
+                "participantId", user.getParticipantId(),
+                "roleCode", user.getRoleCode(),
+                "result", "SUCCESS"
+        ));
+        return new LoginResponse(session.getToken(), toUserAccountView(user), toInstant(session.getExpiresAt()));
+    }
+
+    /**
+     * 根据运营令牌查询当前登录人。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @return 当前用户和令牌过期时间。
+     */
+    public CurrentUserResponse currentUser(String token) {
+        var auth = requireAuthenticated(token);
+        return new CurrentUserResponse(toUserAccountView(auth.user()), toInstant(auth.session().getExpiresAt()));
+    }
+
+    /**
+     * 退出当前运营会话，并将令牌标记为已撤销。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @return 退出结果。
+     */
+    public Map<String, Object> logout(String token) {
+        var auth = requireAuthenticated(token);
+        auth.session().setStatus("REVOKED");
+        auth.session().setLastSeenAt(LocalDateTime.now());
+        loginSessionMapper.updateById(auth.session());
+        createAuditEventSafely("OPERATOR_LOGOUT", auth.user(), Map.of("result", "SUCCESS"));
+        return Map.of("success", true);
+    }
+
+    /**
+     * 创建企业组织主数据，仅平台管理员可操作。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @param request 组织创建请求，包含企业名称、统一社会信用代码与联系人信息。
+     * @return 新创建的组织视图。
+     */
+    public OrganizationView createOrganization(String token, OrganizationRequest request) {
+        var auth = requirePlatformAdmin(token);
+        if (StringUtils.hasText(request.creditCode())) {
+            var duplicated = organizationMapper.selectOne(new LambdaQueryWrapper<OpOrganizationEntity>()
+                    .eq(OpOrganizationEntity::getCreditCode, request.creditCode())
+                    .last("limit 1"));
+            if (duplicated != null) {
+                throw new ResponseStatusException(CONFLICT, "Organization credit code already exists: " + request.creditCode());
+            }
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpOrganizationEntity();
+        entity.setId("org-" + UUID.randomUUID());
+        entity.setName(request.name());
+        entity.setCreditCode(request.creditCode());
+        entity.setContactName(request.contactName());
+        entity.setContactPhone(request.contactPhone());
+        entity.setContactEmail(request.contactEmail());
+        entity.setStatus(defaultText(request.status(), "ACTIVE"));
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        organizationMapper.insert(entity);
+        createAuditEventSafely("ORGANIZATION_CREATE", auth.user(), Map.of(
+                "organizationId", entity.getId(),
+                "organizationName", entity.getName(),
+                "result", "SUCCESS"
+        ));
+        return toOrganizationView(entity);
+    }
+
+    /**
+     * 查询企业组织列表，管理员和审计员可看全部，普通用户仅看自己所属组织。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @return 组织视图集合。
+     */
+    public List<OrganizationView> listOrganizations(String token) {
+        var auth = requireAuthenticated(token);
+        var wrapper = new LambdaQueryWrapper<OpOrganizationEntity>()
+                .orderByDesc(OpOrganizationEntity::getCreatedAt);
+        if (!canReadAll(auth.user())) {
+            wrapper.eq(OpOrganizationEntity::getId, auth.user().getOrganizationId());
+        }
+        var result = new ArrayList<OrganizationView>();
+        for (var entity : organizationMapper.selectList(wrapper)) {
+            result.add(toOrganizationView(entity));
+        }
+        return result;
+    }
+
+    /**
+     * 创建数据空间参与方，并绑定到某个企业组织。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @param request 参与方创建请求，包含 participantId、组织 ID 与角色类型。
+     * @return 新创建的参与方视图。
+     */
+    public ParticipantView createParticipant(String token, ParticipantRequest request) {
+        var auth = requirePlatformAdmin(token);
+        assertOrganizationExists(request.organizationId());
+        var existing = findParticipantByParticipantId(request.participantId());
+        if (existing != null) {
+            throw new ResponseStatusException(CONFLICT, "Participant already exists: " + request.participantId());
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpParticipantEntity();
+        entity.setId("op-part-" + UUID.randomUUID());
+        entity.setParticipantId(request.participantId());
+        entity.setOrganizationId(request.organizationId());
+        entity.setDisplayName(request.displayName());
+        entity.setRoleType(request.roleType());
+        entity.setStatus(defaultText(request.status(), "ACTIVE"));
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        participantMapper.insert(entity);
+        createAuditEventSafely("PARTICIPANT_CREATE", auth.user(), Map.of(
+                "participantId", entity.getParticipantId(),
+                "organizationId", entity.getOrganizationId(),
+                "roleType", entity.getRoleType(),
+                "result", "SUCCESS"
+        ));
+        return toParticipantView(entity);
+    }
+
+    /**
+     * 查询参与方列表，管理员和审计员可看全部，普通用户仅看自己的参与方。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @return 参与方视图集合。
+     */
+    public List<ParticipantView> listParticipants(String token) {
+        var auth = requireAuthenticated(token);
+        var wrapper = new LambdaQueryWrapper<OpParticipantEntity>()
+                .orderByDesc(OpParticipantEntity::getCreatedAt);
+        if (!canReadAll(auth.user())) {
+            wrapper.eq(OpParticipantEntity::getParticipantId, auth.user().getParticipantId());
+        }
+        var result = new ArrayList<ParticipantView>();
+        for (var entity : participantMapper.selectList(wrapper)) {
+            result.add(toParticipantView(entity));
+        }
+        return result;
+    }
+
+    /**
+     * 创建运营登录账号，仅平台管理员可操作，密码使用 PBKDF2 进行落库保护。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @param request 账号创建请求，包含用户名、角色、组织、参与方与初始密码。
+     * @return 新创建的账号视图，不包含密码摘要。
+     */
+    public UserAccountView createUserAccount(String token, UserAccountRequest request) {
+        var auth = requirePlatformAdmin(token);
+        assertOrganizationExists(request.organizationId());
+        assertParticipantExists(request.participantId());
+        var duplicated = userAccountMapper.selectOne(new LambdaQueryWrapper<OpUserAccountEntity>()
+                .eq(OpUserAccountEntity::getUsername, request.username())
+                .last("limit 1"));
+        if (duplicated != null) {
+            throw new ResponseStatusException(CONFLICT, "Username already exists: " + request.username());
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpUserAccountEntity();
+        entity.setId("user-" + UUID.randomUUID());
+        entity.setUsername(request.username());
+        entity.setDisplayName(request.displayName());
+        entity.setOrganizationId(request.organizationId());
+        entity.setParticipantId(request.participantId());
+        entity.setRoleCode(request.roleCode());
+        entity.setPasswordHash(hashPassword(request.password()));
+        entity.setStatus(defaultText(request.status(), "ACTIVE"));
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        userAccountMapper.insert(entity);
+        createAuditEventSafely("USER_ACCOUNT_CREATE", auth.user(), Map.of(
+                "userId", entity.getId(),
+                "username", entity.getUsername(),
+                "roleCode", entity.getRoleCode(),
+                "participantId", entity.getParticipantId(),
+                "result", "SUCCESS"
+        ));
+        return toUserAccountView(entity);
+    }
+
+    /**
+     * 查询运营账号列表，管理员和审计员可看全部，普通用户仅看同参与方账号。
+     *
+     * @param token 请求头 X-Operator-Token 中传入的会话令牌。
+     * @return 账号视图集合，不包含密码摘要。
+     */
+    public List<UserAccountView> listUserAccounts(String token) {
+        var auth = requireAuthenticated(token);
+        var wrapper = new LambdaQueryWrapper<OpUserAccountEntity>()
+                .orderByDesc(OpUserAccountEntity::getCreatedAt);
+        if (!canReadAll(auth.user())) {
+            wrapper.eq(OpUserAccountEntity::getParticipantId, auth.user().getParticipantId());
+        }
+        var result = new ArrayList<UserAccountView>();
+        for (var entity : userAccountMapper.selectList(wrapper)) {
+            result.add(toUserAccountView(entity));
+        }
+        return result;
+    }
+
+    /**
      * 创建会员记录。
      *
      * @param request 会员创建请求。
      * @return 新创建的会员记录。
      */
     public Membership createMembership(MembershipRequest request) {
+        assertParticipantExists(request.participantId());
         var now = LocalDateTime.now();
         var entity = new OpMembershipEntity();
         entity.setId("mem-" + UUID.randomUUID());
@@ -408,6 +692,228 @@ public class OperatorService {
         ensureMembershipExists(DEFAULT_CONSUMER_PARTICIPANT, "GOLD");
     }
 
+    /**
+     * 初始化 V1.1 商用基线账号、组织与参与方，保证新环境可直接登录演示。
+     */
+    public void ensureDefaultCommercialAccounts() {
+        ensureOrganizationExists("org-operator", "数据空间运营平台", "91310000OPERATOR", "平台运营", "400-000-0000", "operator@example.com");
+        ensureOrganizationExists("org-provider-a", "华东车联", "91310000PROVIDERA", "车联数据负责人", "021-1000-1000", "provider@example.com");
+        ensureOrganizationExists("org-consumer-b", "保险风控中心", "91310000CONSUMERB", "风控业务负责人", "021-2000-2000", "consumer@example.com");
+
+        ensureParticipantExists("op-part-operator", DEFAULT_OPERATOR_PARTICIPANT, "org-operator", "数据空间运营平台", "OPERATOR");
+        ensureParticipantExists("op-part-provider-a", DEFAULT_PARTICIPANT, "org-provider-a", "华东车联", "PROVIDER");
+        ensureParticipantExists("op-part-consumer-b", DEFAULT_CONSUMER_PARTICIPANT, "org-consumer-b", "保险风控中心", "CONSUMER");
+
+        ensureUserAccountExists("user-operator-admin", "operator_admin", "运营管理员", "org-operator",
+                DEFAULT_OPERATOR_PARTICIPANT, ROLE_PLATFORM_ADMIN);
+        ensureUserAccountExists("user-provider-admin", "provider_admin", "供应方管理员", "org-provider-a",
+                DEFAULT_PARTICIPANT, ROLE_PROVIDER_ADMIN);
+        ensureUserAccountExists("user-consumer-admin", "consumer_admin", "消费方管理员", "org-consumer-b",
+                DEFAULT_CONSUMER_PARTICIPANT, ROLE_CONSUMER_ADMIN);
+    }
+
+    private void ensureOrganizationExists(
+            String id,
+            String name,
+            String creditCode,
+            String contactName,
+            String contactPhone,
+            String contactEmail) {
+        var existing = organizationMapper.selectById(id);
+        if (existing != null) {
+            return;
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpOrganizationEntity();
+        entity.setId(id);
+        entity.setName(name);
+        entity.setCreditCode(creditCode);
+        entity.setContactName(contactName);
+        entity.setContactPhone(contactPhone);
+        entity.setContactEmail(contactEmail);
+        entity.setStatus("ACTIVE");
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        organizationMapper.insert(entity);
+    }
+
+    private void ensureParticipantExists(String id, String participantId, String organizationId, String displayName, String roleType) {
+        var existing = findParticipantByParticipantId(participantId);
+        if (existing != null) {
+            return;
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpParticipantEntity();
+        entity.setId(id);
+        entity.setParticipantId(participantId);
+        entity.setOrganizationId(organizationId);
+        entity.setDisplayName(displayName);
+        entity.setRoleType(roleType);
+        entity.setStatus("ACTIVE");
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        participantMapper.insert(entity);
+    }
+
+    private void ensureUserAccountExists(
+            String id,
+            String username,
+            String displayName,
+            String organizationId,
+            String participantId,
+            String roleCode) {
+        var existing = userAccountMapper.selectOne(new LambdaQueryWrapper<OpUserAccountEntity>()
+                .eq(OpUserAccountEntity::getUsername, username)
+                .last("limit 1"));
+        if (existing != null) {
+            return;
+        }
+
+        var now = LocalDateTime.now();
+        var entity = new OpUserAccountEntity();
+        entity.setId(id);
+        entity.setUsername(username);
+        entity.setDisplayName(displayName);
+        entity.setOrganizationId(organizationId);
+        entity.setParticipantId(participantId);
+        entity.setRoleCode(roleCode);
+        entity.setPasswordHash(hashPassword(DEFAULT_ACCOUNT_PASSWORD));
+        entity.setStatus("ACTIVE");
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        userAccountMapper.insert(entity);
+    }
+
+    private AuthenticatedOperator requirePlatformAdmin(String token) {
+        var auth = requireAuthenticated(token);
+        if (!ROLE_PLATFORM_ADMIN.equals(auth.user().getRoleCode())) {
+            throw new ResponseStatusException(FORBIDDEN, "Only platform admin can perform this operation");
+        }
+        return auth;
+    }
+
+    private AuthenticatedOperator requireAuthenticated(String token) {
+        if (!StringUtils.hasText(token)) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Missing X-Operator-Token");
+        }
+
+        var now = LocalDateTime.now();
+        var session = loginSessionMapper.selectOne(new LambdaQueryWrapper<OpLoginSessionEntity>()
+                .eq(OpLoginSessionEntity::getToken, token)
+                .eq(OpLoginSessionEntity::getStatus, "ACTIVE")
+                .last("limit 1"));
+        if (session == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid operator session");
+        }
+        if (session.getExpiresAt().isBefore(now)) {
+            session.setStatus("EXPIRED");
+            session.setLastSeenAt(now);
+            loginSessionMapper.updateById(session);
+            throw new ResponseStatusException(UNAUTHORIZED, "Operator session expired");
+        }
+
+        var user = userAccountMapper.selectById(session.getUserId());
+        if (user == null || !"ACTIVE".equals(user.getStatus())) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Operator user is inactive");
+        }
+
+        session.setLastSeenAt(now);
+        loginSessionMapper.updateById(session);
+        return new AuthenticatedOperator(user, session);
+    }
+
+    private boolean canReadAll(OpUserAccountEntity user) {
+        return ROLE_PLATFORM_ADMIN.equals(user.getRoleCode()) || ROLE_AUDITOR.equals(user.getRoleCode());
+    }
+
+    private void assertOrganizationExists(String organizationId) {
+        var entity = organizationMapper.selectById(organizationId);
+        if (entity == null) {
+            throw new ResponseStatusException(NOT_FOUND, "Organization not found: " + organizationId);
+        }
+    }
+
+    private void assertParticipantExists(String participantId) {
+        var entity = findParticipantByParticipantId(participantId);
+        if (entity == null) {
+            throw new ResponseStatusException(NOT_FOUND, "Participant not found: " + participantId);
+        }
+    }
+
+    private OpParticipantEntity findParticipantByParticipantId(String participantId) {
+        return participantMapper.selectOne(new LambdaQueryWrapper<OpParticipantEntity>()
+                .eq(OpParticipantEntity::getParticipantId, participantId)
+                .last("limit 1"));
+    }
+
+    private String hashPassword(String password) {
+        var salt = new byte[16];
+        secureRandom.nextBytes(salt);
+        var hash = pbkdf2(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH);
+        return "pbkdf2$" + PASSWORD_ITERATIONS + "$"
+                + Base64.getEncoder().encodeToString(salt) + "$"
+                + Base64.getEncoder().encodeToString(hash);
+    }
+
+    private boolean verifyPassword(String password, String storedHash) {
+        if (!StringUtils.hasText(storedHash)) {
+            return false;
+        }
+        var parts = storedHash.split("\\$");
+        if (parts.length != 4 || !"pbkdf2".equals(parts[0])) {
+            return false;
+        }
+        try {
+            var iterations = Integer.parseInt(parts[1]);
+            var salt = Base64.getDecoder().decode(parts[2]);
+            var expected = Base64.getDecoder().decode(parts[3]);
+            var actual = pbkdf2(password, salt, iterations, expected.length * 8);
+            return MessageDigest.isEqual(expected, actual);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private byte[] pbkdf2(String password, byte[] salt, int iterations, int keyLength) {
+        try {
+            KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, keyLength);
+            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to hash password", e);
+        }
+    }
+
+    private void createAuditEventSafely(String eventType, OpUserAccountEntity actor, Map<String, Object> payload) {
+        try {
+            var enrichedPayload = new LinkedHashMap<String, Object>();
+            if (payload != null) {
+                enrichedPayload.putAll(payload);
+            }
+            enrichedPayload.putIfAbsent("operatorUserId", actor.getId());
+            enrichedPayload.putIfAbsent("operatorUsername", actor.getUsername());
+            enrichedPayload.putIfAbsent("participantId", actor.getParticipantId());
+            enrichedPayload.putIfAbsent("roleCode", actor.getRoleCode());
+            enrichedPayload.putIfAbsent("traceId", "trace-" + UUID.randomUUID());
+
+            var entity = new OpAuditEventEntity();
+            entity.setId("audit-" + UUID.randomUUID());
+            entity.setEventType(eventType);
+            entity.setActorId(actor.getId());
+            entity.setPayloadJson(writeJson(enrichedPayload));
+            entity.setSignature("local-demo-signature");
+            entity.setCreatedAt(LocalDateTime.now());
+            auditEventMapper.insert(entity);
+        } catch (Exception ignored) {
+            // 审计写入失败不能影响登录和基础主数据维护，后续由健康检查暴露异常。
+        }
+    }
+
+    private String defaultText(String value, String fallback) {
+        return StringUtils.hasText(value) ? value : fallback;
+    }
+
     private OpBillingPlanEntity findOrCreatePlan(String participantId, String serviceCode) {
         var entity = billingPlanMapper.selectOne(new LambdaQueryWrapper<OpBillingPlanEntity>()
                 .eq(OpBillingPlanEntity::getParticipantId, participantId)
@@ -461,6 +967,47 @@ public class OperatorService {
                         .ge(OpMembershipEntity::getValidTo, now))
                 .orderByDesc(OpMembershipEntity::getValidFrom)
                 .last("limit 1"));
+    }
+
+    private OrganizationView toOrganizationView(OpOrganizationEntity entity) {
+        return new OrganizationView(
+                entity.getId(),
+                entity.getName(),
+                entity.getCreditCode(),
+                entity.getContactName(),
+                entity.getContactPhone(),
+                entity.getContactEmail(),
+                entity.getStatus(),
+                toInstant(entity.getCreatedAt()),
+                toInstant(entity.getUpdatedAt())
+        );
+    }
+
+    private ParticipantView toParticipantView(OpParticipantEntity entity) {
+        return new ParticipantView(
+                entity.getId(),
+                entity.getParticipantId(),
+                entity.getOrganizationId(),
+                entity.getDisplayName(),
+                entity.getRoleType(),
+                entity.getStatus(),
+                toInstant(entity.getCreatedAt()),
+                toInstant(entity.getUpdatedAt())
+        );
+    }
+
+    private UserAccountView toUserAccountView(OpUserAccountEntity entity) {
+        return new UserAccountView(
+                entity.getId(),
+                entity.getUsername(),
+                entity.getDisplayName(),
+                entity.getOrganizationId(),
+                entity.getParticipantId(),
+                entity.getRoleCode(),
+                entity.getStatus(),
+                toInstant(entity.getCreatedAt()),
+                toInstant(entity.getUpdatedAt())
+        );
     }
 
     private Membership toMembership(OpMembershipEntity entity) {
@@ -537,5 +1084,8 @@ public class OperatorService {
             return null;
         }
         return value.atZone(ZoneId.systemDefault()).toInstant();
+    }
+
+    private record AuthenticatedOperator(OpUserAccountEntity user, OpLoginSessionEntity session) {
     }
 }

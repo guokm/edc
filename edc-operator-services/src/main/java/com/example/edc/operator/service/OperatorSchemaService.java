@@ -20,6 +20,58 @@ public class OperatorSchemaService {
     @PostConstruct
     public void initialize() {
         jdbcTemplate.execute("""
+                create table if not exists edc_op_organization (
+                  id varchar(128) primary key,
+                  name varchar(255) not null,
+                  credit_code varchar(128),
+                  contact_name varchar(128),
+                  contact_phone varchar(64),
+                  contact_email varchar(128),
+                  status varchar(32) not null,
+                  created_at timestamp not null,
+                  updated_at timestamp not null,
+                  unique key uk_edc_op_org_credit_code (credit_code)
+                )
+                """);
+        jdbcTemplate.execute("""
+                create table if not exists edc_op_participant (
+                  id varchar(128) primary key,
+                  participant_id varchar(128) not null,
+                  organization_id varchar(128) not null,
+                  display_name varchar(255) not null,
+                  role_type varchar(64) not null,
+                  status varchar(32) not null,
+                  created_at timestamp not null,
+                  updated_at timestamp not null,
+                  unique key uk_edc_op_participant_id (participant_id)
+                )
+                """);
+        jdbcTemplate.execute("""
+                create table if not exists edc_op_user_account (
+                  id varchar(128) primary key,
+                  username varchar(128) not null,
+                  display_name varchar(128) not null,
+                  organization_id varchar(128) not null,
+                  participant_id varchar(128) not null,
+                  role_code varchar(64) not null,
+                  password_hash varchar(512) not null,
+                  status varchar(32) not null,
+                  created_at timestamp not null,
+                  updated_at timestamp not null,
+                  unique key uk_edc_op_user_username (username)
+                )
+                """);
+        jdbcTemplate.execute("""
+                create table if not exists edc_op_login_session (
+                  token varchar(256) primary key,
+                  user_id varchar(128) not null,
+                  expires_at timestamp not null,
+                  created_at timestamp not null,
+                  last_seen_at timestamp not null,
+                  status varchar(32) not null
+                )
+                """);
+        jdbcTemplate.execute("""
                 create table if not exists edc_op_membership (
                   id varchar(128) primary key,
                   participant_id varchar(128) not null,
@@ -83,6 +135,7 @@ public class OperatorSchemaService {
                 )
                 """);
 
+        operatorService.ensureDefaultCommercialAccounts();
         operatorService.ensureDefaultBillingPlans();
         operatorService.ensureDefaultMemberships();
     }

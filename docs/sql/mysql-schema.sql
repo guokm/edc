@@ -153,6 +153,58 @@ CREATE TABLE IF NOT EXISTS edc_fc_crawl_job (
   item_count INT NOT NULL COMMENT '本次新增目录项数量'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='联邦目录爬取任务表';
 
+-- 运营服务：企业组织表
+CREATE TABLE IF NOT EXISTS edc_op_organization (
+  id VARCHAR(128) PRIMARY KEY COMMENT '组织ID',
+  name VARCHAR(255) NOT NULL COMMENT '企业/平台组织名称',
+  credit_code VARCHAR(128) COMMENT '统一社会信用代码或内部组织编码',
+  contact_name VARCHAR(128) COMMENT '联系人姓名',
+  contact_phone VARCHAR(64) COMMENT '联系人电话',
+  contact_email VARCHAR(128) COMMENT '联系人邮箱',
+  status VARCHAR(32) NOT NULL COMMENT '组织状态(ACTIVE/SUSPENDED/EXITED)',
+  created_at TIMESTAMP NOT NULL COMMENT '创建时间',
+  updated_at TIMESTAMP NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_edc_op_org_credit_code (credit_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='运营服务企业组织表';
+
+-- 运营服务：参与方表
+CREATE TABLE IF NOT EXISTS edc_op_participant (
+  id VARCHAR(128) PRIMARY KEY COMMENT '运营侧参与方记录ID',
+  participant_id VARCHAR(128) NOT NULL COMMENT '数据空间参与方ID，对应协商/目录/计费中的 participantId',
+  organization_id VARCHAR(128) NOT NULL COMMENT '所属组织ID',
+  display_name VARCHAR(255) NOT NULL COMMENT '参与方展示名称',
+  role_type VARCHAR(64) NOT NULL COMMENT '参与方类型(PROVIDER/CONSUMER/OPERATOR)',
+  status VARCHAR(32) NOT NULL COMMENT '参与方状态(ACTIVE/SUSPENDED/EXITED)',
+  created_at TIMESTAMP NOT NULL COMMENT '创建时间',
+  updated_at TIMESTAMP NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_edc_op_participant_id (participant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='运营服务参与方表';
+
+-- 运营服务：用户账号表
+CREATE TABLE IF NOT EXISTS edc_op_user_account (
+  id VARCHAR(128) PRIMARY KEY COMMENT '用户账号ID',
+  username VARCHAR(128) NOT NULL COMMENT '登录用户名',
+  display_name VARCHAR(128) NOT NULL COMMENT '用户展示名称',
+  organization_id VARCHAR(128) NOT NULL COMMENT '所属组织ID',
+  participant_id VARCHAR(128) NOT NULL COMMENT '绑定参与方ID',
+  role_code VARCHAR(64) NOT NULL COMMENT '角色编码(PLATFORM_ADMIN/PROVIDER_ADMIN/CONSUMER_ADMIN/AUDITOR等)',
+  password_hash VARCHAR(512) NOT NULL COMMENT 'PBKDF2密码摘要，不存储明文密码',
+  status VARCHAR(32) NOT NULL COMMENT '账号状态(ACTIVE/DISABLED)',
+  created_at TIMESTAMP NOT NULL COMMENT '创建时间',
+  updated_at TIMESTAMP NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_edc_op_user_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='运营服务用户账号表';
+
+-- 运营服务：登录会话表
+CREATE TABLE IF NOT EXISTS edc_op_login_session (
+  token VARCHAR(256) PRIMARY KEY COMMENT '运营登录令牌',
+  user_id VARCHAR(128) NOT NULL COMMENT '用户账号ID',
+  expires_at TIMESTAMP NOT NULL COMMENT '令牌过期时间',
+  created_at TIMESTAMP NOT NULL COMMENT '创建时间',
+  last_seen_at TIMESTAMP NOT NULL COMMENT '最后访问时间',
+  status VARCHAR(32) NOT NULL COMMENT '会话状态(ACTIVE/REVOKED/EXPIRED)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='运营服务登录会话表';
+
 -- 运营服务：会员表
 CREATE TABLE IF NOT EXISTS edc_op_membership (
   id VARCHAR(128) PRIMARY KEY COMMENT '会员ID',

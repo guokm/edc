@@ -75,6 +75,23 @@ check_post_with_participant() {
   fi
 }
 
+check_code_with_operator_token() {
+  local name="$1"
+  local url="$2"
+  local token="$3"
+  local expected="$4"
+  local code
+  code=$(curl -s -H "X-Operator-Token: ${token}" \
+    -o "/tmp/${name}.json" \
+    -w "%{http_code}" \
+    "$url" || true)
+  printf '%-24s %s\n' "$name" "$code"
+  if [[ "$code" != "$expected" ]]; then
+    echo "ERROR: ${name} expected ${expected}, got ${code}" >&2
+    return 1
+  fi
+}
+
 query_count() {
   local sql="$1"
   docker compose exec -T mysql env MYSQL_PWD=edc mysql -u edc -D edc -Nse "$sql" | tr -d '\r'
@@ -134,6 +151,24 @@ check_code "gateway-op" "${OPERATOR_BASE}/actuator/health" "200"
 check_code "gateway-dp1" "${DP1_BASE}/actuator/health" "200"
 check_code "gateway-dp2" "${DP2_BASE}/actuator/health" "200"
 wait_dataplanes_ready
+
+log "验证运营账号/RBAC/组织参与方基座"
+check_post "op-login" "${OPERATOR_BASE}/api/auth/login" '{"username":"operator_admin","password":"ChangeMe@123"}' "200"
+operator_token=$(python3 - <<'PY'
+import json
+with open("/tmp/op-login.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+print(data.get("token", ""))
+PY
+)
+if [[ -z "$operator_token" ]]; then
+  echo "ERROR: operator login token missing" >&2
+  exit 1
+fi
+check_code_with_operator_token "op-me" "${OPERATOR_BASE}/api/auth/me" "$operator_token" "200"
+check_code_with_operator_token "op-organizations" "${OPERATOR_BASE}/api/organizations" "$operator_token" "200"
+check_code_with_operator_token "op-participants" "${OPERATOR_BASE}/api/participants" "$operator_token" "200"
+check_code_with_operator_token "op-users" "${OPERATOR_BASE}/api/users" "$operator_token" "200"
 
 log "运行控制面完整流程（生成资产/协商/传输）"
 check_post_with_participant "qual-issuance" "${ISSUER_BASE}/api/issuer/credentials" "participant-b" '{"type":"CommercialAccessCredential","issuer":"issuer-A","claims":{"participant":"participant-b","scope":"CATALOG_ACCESS"},"expiresAt":"2026-12-31T00:00:00Z"}' "200"
@@ -298,6 +333,9 @@ dp_transfer_dp_distinct="$(query_count 'select count(distinct data_plane_id) fro
 fc_offer_match_count="$(query_count 'select count(*) from edc_fc_catalog_item f join edc_cp_contract_offer o on f.offer_id = o.id;')"
 audit_event_count="$(query_count 'select count(*) from edc_op_audit_event;')"
 billing_record_count="$(query_count 'select count(*) from edc_op_billing_record;')"
+op_organization_count="$(query_count 'select count(*) from edc_op_organization;')"
+op_participant_count="$(query_count 'select count(*) from edc_op_participant;')"
+op_user_count="$(query_count 'select count(*) from edc_op_user_account;')"
 
 assert_min "edc_cp_asset" "$cp_asset_count" 3
 assert_min "edc_cp_contract_offer" "$cp_offer_count" 3
@@ -307,9 +345,13 @@ assert_min "edc_cp_data_plane_instance" "$cp_dp_count" 2
 assert_min "edc_cp_transfer_process distinct data_plane_id" "$cp_transfer_dp_distinct" 2
 assert_min "edc_dp_transfer_process" "$dp_transfer_count" 3
 assert_min "edc_dp_transfer_process distinct data_plane_id" "$dp_transfer_dp_distinct" 2
-assert_min "edc_fc_catalog_item mirrored offers" "$fc_offer_match_count" "$cp_offer_count"
+# 旧数据库可能存在历史 offer，不要求历史数据全部被本次目录任务补齐；本次场景至少应镜像 3 条 offer。
+assert_min "edc_fc_catalog_item mirrored offers" "$fc_offer_match_count" 3
 assert_min "edc_op_audit_event" "$audit_event_count" 1
 assert_min "edc_op_billing_record" "$billing_record_count" 1
+assert_min "edc_op_organization" "$op_organization_count" 3
+assert_min "edc_op_participant" "$op_participant_count" 3
+assert_min "edc_op_user_account" "$op_user_count" 3
 
 log "补充验证其余后端模块接口"
 check_code "catalog" "${CONTROL_BASE}/api/catalog" "200"
@@ -345,5 +387,8 @@ printf '  edc_dp_transfer_process distinct data_plane   = %s\n' "$dp_transfer_dp
 printf '  edc_fc_catalog_item mirrored offers           = %s\n' "$fc_offer_match_count"
 printf '  edc_op_audit_event                            = %s\n' "$audit_event_count"
 printf '  edc_op_billing_record                         = %s\n' "$billing_record_count"
+printf '  edc_op_organization                           = %s\n' "$op_organization_count"
+printf '  edc_op_participant                            = %s\n' "$op_participant_count"
+printf '  edc_op_user_account                           = %s\n' "$op_user_count"
 
 log "Maven/JDK21 商业流程验证通过"

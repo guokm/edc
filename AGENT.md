@@ -68,7 +68,7 @@
 - `edc-identity-hub`：身份中心
 - `edc-issuer-service`：凭证发行
 - `edc-federated-catalog`：联邦目录
-- `edc-operator-services`：运营治理（会员/策略/审计/按次计费校验）
+- `edc-operator-services`：运营治理（组织/参与方/用户登录/RBAC、会员、策略、审计、按次计费校验）
 - `edc-common`：共享模型
 - `frontend`：Vue3 控制台
 
@@ -145,12 +145,27 @@
 
 运营治理：
 
+- `edc_op_organization`
+- `edc_op_participant`
+- `edc_op_user_account`
+- `edc_op_login_session`
 - `edc_op_membership`
 - `edc_op_policy`
 - `edc_op_audit_event`
 - `edc_op_billing_record`
 - `edc_op_billing_plan`
 - `edc_op_usage_counter`
+
+### 5.1 运营账号与成员关系
+
+- 组织主数据：`edc_op_organization`，表示平台方、供应方、消费方的企业主体。
+- 参与方：`edc_op_participant`，`participant_id` 是控制面/身份/计费链路使用的业务 ID。
+- 登录账号：`edc_op_user_account`，账号通过 `organization_id + participant_id + role_code` 绑定组织、参与方和权限。
+- 登录会话：`edc_op_login_session`，前端与运营接口使用 `X-Operator-Token` 传递会话令牌。
+- 默认账号（初始密码均为 `ChangeMe@123`，试点部署后必须修改）：
+  - `operator_admin`：`PLATFORM_ADMIN`，绑定 `operator`
+  - `provider_admin`：`PROVIDER_ADMIN`，绑定 `participant-a`
+  - `consumer_admin`：`CONSUMER_ADMIN`，绑定 `participant-b`
 
 ## 6. 常用命令
 
@@ -193,8 +208,19 @@ docker compose logs --tail=200 data-plane-2
 - 双 Data Plane 已注册并参与传输分流
 - 传输流程、EDR、核心业务数据均落 MySQL
 - 前端已支持“全链路流转可视化”与“双数据平面传输演示”
+- 客户商用版本规划已沉淀到 `docs/V1.1/version-notes.md`，V1.1 定位为客户可试点商用版。
 
 ## 8.1 本轮新增接口（2026-03-08）
+
+Operator Services V1.1 商用基座新增：
+
+- `POST /api/auth/login`：运营账号登录，返回 `X-Operator-Token`。
+- `GET /api/auth/me` / `POST /api/auth/logout`：查询当前用户/退出登录。
+- `GET/POST /api/organizations`：组织主数据查询与创建（创建需 `PLATFORM_ADMIN`）。
+- `GET/POST /api/participants`：参与方查询与创建（创建需 `PLATFORM_ADMIN`）。
+- `GET/POST /api/users`：运营账号查询与创建（创建需 `PLATFORM_ADMIN`，返回不暴露密码摘要）。
+- 默认种子数据会自动建立：`operator`、`participant-a`、`participant-b` 三个参与方及三个管理员账号。
+- 运营侧写操作会写入 `edc_op_audit_event`，payload 约定携带 `operatorUserId`、`operatorUsername`、`participantId`、`roleCode`、`traceId`。
 
 Control Plane 新增/补齐：
 

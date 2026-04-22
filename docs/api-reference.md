@@ -67,6 +67,15 @@
   - `POST /api/federated/crawl`
   - `POST /api/federated/internal/sync`（内部接口，需 `X-Sync-Token`）
 - Operator Services（外部前缀 `/op`，内部端口 8186）
+  - `POST /api/auth/login`（本地运营账号登录，返回 `X-Operator-Token`）
+  - `GET /api/auth/me`（需 `X-Operator-Token`，查询当前登录人）
+  - `POST /api/auth/logout`（需 `X-Operator-Token`，撤销登录会话）
+  - `GET /api/organizations`（需 `X-Operator-Token`，按角色返回组织列表）
+  - `POST /api/organizations`（需平台管理员令牌，创建企业组织）
+  - `GET /api/participants`（需 `X-Operator-Token`，按角色返回参与方列表）
+  - `POST /api/participants`（需平台管理员令牌，创建参与方并绑定组织）
+  - `GET /api/users`（需 `X-Operator-Token`，按角色返回账号列表）
+  - `POST /api/users`（需平台管理员令牌，创建运营账号）
   - `POST /api/memberships`
   - `GET /api/memberships/active?participantId=...`
   - `POST /api/policies`
