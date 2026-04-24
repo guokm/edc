@@ -1,5 +1,24 @@
+type OperatorTokenResolver = () => string | null | undefined
+
+let operatorTokenResolver: OperatorTokenResolver | null = null
+
+export function registerOperatorTokenResolver(resolver: OperatorTokenResolver) {
+  operatorTokenResolver = resolver
+}
+
 export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
+  const headers = new Headers(init?.headers ?? {})
+  if (url.startsWith(OPERATOR_BASE)) {
+    const token = operatorTokenResolver?.()
+    if (token && !headers.has('X-Operator-Token')) {
+      headers.set('X-Operator-Token', token)
+    }
+  }
+
+  const response = await fetch(url, {
+    ...init,
+    headers
+  })
   const raw = await response.text()
 
   if (!response.ok) {
