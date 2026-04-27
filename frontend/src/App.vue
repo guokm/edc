@@ -3,7 +3,7 @@
     <header class="topbar">
       <div class="meta-row">
         <div class="brand-zone">
-          <p class="eyebrow">V1.1.1 · Role Portal</p>
+          <p class="eyebrow">V1.1.2 · Ops Observability</p>
           <h1>模块流转可视化控制台</h1>
           <p class="brand-subtitle">先登录，再按角色进入对应工作台；账号、参与方、协商和计费终于能讲成一条线。</p>
         </div>

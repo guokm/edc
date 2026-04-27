@@ -694,6 +694,50 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
+.ops-summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.ops-summary-card {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 12px;
+}
+
+.ops-summary-card.alert {
+  border-color: #f3b2b8;
+  background: #fff5f6;
+}
+
+.ops-summary-card.alert .stat-value {
+  color: var(--danger);
+}
+
+.issue-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.issue-row,
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.issue-row {
+  border-radius: 14px;
+  border: 1px solid #f3b2b8;
+  background: #fff5f6;
+  padding: 10px 12px;
+}
+
 .health-card {
   border-radius: 14px;
   border: 1px solid var(--line);
@@ -780,6 +824,7 @@ select {
   .guide-steps,
   .top-role-grid,
   .account-grid,
+  .ops-summary-grid,
   .summary-strip,
   .info-grid,
   .form-row,

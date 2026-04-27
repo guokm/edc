@@ -8,6 +8,39 @@
         </button>
       </div>
 
+      <div class="ops-summary-grid" aria-label="节点健康摘要">
+        <article class="ops-summary-card">
+          <p class="stat-label">健康检查</p>
+          <p class="stat-value">{{ healthSummary.up }} / {{ healthSummary.total }}</p>
+          <p class="stat-note">最近检测：{{ formatDateTime(healthSummary.lastCheckedAt) }}</p>
+        </article>
+        <article class="ops-summary-card" :class="{ alert: healthSummary.down > 0 }">
+          <p class="stat-label">异常项</p>
+          <p class="stat-value">{{ healthSummary.down }}</p>
+          <p class="stat-note">{{ healthSummary.down > 0 ? '需要优先处理' : '全部服务可用' }}</p>
+        </article>
+        <article class="ops-summary-card">
+          <p class="stat-label">注册 Data Plane</p>
+          <p class="stat-value">{{ registrySummary.active }} / {{ registrySummary.total }}</p>
+          <p class="stat-note">{{ registrySummary.inactive }} 个非 ACTIVE</p>
+        </article>
+        <article class="ops-summary-card">
+          <p class="stat-label">累计传输</p>
+          <p class="stat-value">{{ dataPlaneSummary.transferCount }}</p>
+          <p class="stat-note">{{ dataPlaneSummary.up }} 个数据面在线</p>
+        </article>
+      </div>
+
+      <div v-if="unhealthyServices.length" class="issue-list">
+        <article v-for="item in unhealthyServices" :key="item.moduleName + item.checkName + item.endpoint" class="issue-row">
+          <div>
+            <p>{{ item.moduleName }} · {{ item.checkName }}</p>
+            <p class="muted">{{ item.message || '未返回错误详情' }}</p>
+          </div>
+          <span class="state-chip err">{{ item.statusCode ?? item.status }}</span>
+        </article>
+      </div>
+
       <div class="health-grid">
         <article v-for="item in pagedServices" :key="item.moduleName + item.checkName" class="health-card">
           <div>
@@ -50,7 +83,7 @@
             <tr v-for="item in pagedRegistryItems" :key="item.id">
               <td class="mono">{{ item.id }}</td>
               <td>{{ item.protocol }}</td>
-              <td>{{ item.status }}</td>
+              <td><span class="state-chip" :class="statusClass(item.status)">{{ item.status }}</span></td>
               <td class="mono">{{ item.publicApiBaseUrl }}</td>
               <td class="mono">{{ item.controlApiBaseUrl }}</td>
               <td>{{ formatDateTime(item.lastSeenAt) }}</td>
@@ -75,10 +108,12 @@
 
         <div class="dual-grid">
           <article v-for="item in pagedDataPlaneInfos" :key="item.dataPlaneId" class="step-card">
-            <p class="muted">{{ item.dataPlaneId }}</p>
+            <div class="card-title-row">
+              <p class="muted">{{ item.dataPlaneId }}</p>
+              <span class="state-chip" :class="statusClass(item.status)">{{ item.statusCode ?? item.status }}</span>
+            </div>
             <p class="mono">{{ item.publicApiBaseUrl }}</p>
             <p>累计传输：{{ item.transferCount ?? 0 }}</p>
-            <p>状态：{{ item.status }}</p>
             <p class="mono">{{ item.message }}</p>
             <p class="muted">时间：{{ formatDateTime(item.checkedAt) }}</p>
           </article>
@@ -164,6 +199,35 @@ const sortedServices = computed(() => [...services.value].sort((a, b) => toTimeM
 const sortedRegistryItems = computed(() => [...registryItems.value].sort((a, b) => toTimeMillis(b.lastSeenAt) - toTimeMillis(a.lastSeenAt)))
 const sortedDataPlaneInfos = computed(() => [...dataPlaneInfos.value].sort((a, b) => toTimeMillis(b.checkedAt) - toTimeMillis(a.checkedAt)))
 
+const healthSummary = computed(() => {
+  const total = services.value.length
+  const up = services.value.filter((item) => item.status === 'UP').length
+  return {
+    total,
+    up,
+    down: Math.max(0, total - up),
+    lastCheckedAt: sortedServices.value[0]?.checkedAt ?? ''
+  }
+})
+const registrySummary = computed(() => {
+  const total = registryItems.value.length
+  const active = registryItems.value.filter((item) => item.status === 'ACTIVE').length
+  return {
+    total,
+    active,
+    inactive: Math.max(0, total - active)
+  }
+})
+const dataPlaneSummary = computed(() => {
+  const up = dataPlaneInfos.value.filter((item) => item.status === 'UP').length
+  const transferCount = dataPlaneInfos.value.reduce((sum, item) => sum + (item.transferCount ?? 0), 0)
+  return {
+    up,
+    transferCount
+  }
+})
+const unhealthyServices = computed(() => sortedServices.value.filter((item) => item.status !== 'UP').slice(0, 4))
+
 const healthPageCount = computed(() => Math.max(1, Math.ceil(sortedServices.value.length / PAGE_SIZE)))
 const registryPageCount = computed(() => Math.max(1, Math.ceil(sortedRegistryItems.value.length / PAGE_SIZE)))
 const dataPlaneInfoPageCount = computed(() => Math.max(1, Math.ceil(sortedDataPlaneInfos.value.length / PAGE_SIZE)))
@@ -173,7 +237,7 @@ const pagedRegistryItems = computed(() => paginate(sortedRegistryItems.value, re
 const pagedDataPlaneInfos = computed(() => paginate(sortedDataPlaneInfos.value, dataPlaneInfoPage.value))
 
 function statusClass(status: string): string {
-  if (status === 'UP' || status === '200') {
+  if (status === 'UP' || status === '200' || status === 'ACTIVE') {
     return 'ok'
   }
   if (status === 'PENDING') {
